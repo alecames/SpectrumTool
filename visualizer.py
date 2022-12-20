@@ -192,8 +192,7 @@ while True:
 			if event.key == pygame.K_ESCAPE:
 				pygame.quit()
 				sys.exit()
-
-
+				
 stream.stop_stream()
 stream.close()
 p.terminate()
