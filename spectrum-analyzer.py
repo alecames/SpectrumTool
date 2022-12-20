@@ -8,7 +8,7 @@ from pygame import gfxdraw
 # visual settings
 FPS = 144
 FONT_PATH = "./assets/Product Sans Regular.ttf"
-TITLE = "Spectrum Visualizer"
+TITLE = "Spectrum Analyzer"
 FONT_COLOR = (255, 255, 255)
 FONT_COLOR_ACCENT = (139, 178, 112)
 FONT_SCALE = 1.2
@@ -16,6 +16,7 @@ CH_COLOR = (139, 178, 112, 100)
 CTRL_BAR_H = 100
 CTRL_BAR_COLOR = (34, 36, 30)
 BUTTON_COLOR = (139, 178, 112)
+BUTTON_COLOR_HOVER = (63, 74, 52)
 RIDGE_COLOR = (63, 74, 52)
 BACKGROUND_COLOR = (27, 27, 27)
 SPECTRUM_COLOR = (139, 178, 112)
@@ -37,7 +38,7 @@ pygame.display.set_icon(icon)
 
 # init audio streams for in and out
 p = pyaudio.PyAudio()
-stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, input=True, frames_per_buffer=BUFFER)
+mic_stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, input=True, frames_per_buffer=BUFFER)
 out_stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, output=True, frames_per_buffer=BUFFER)
 
 previous_spectrums = []
@@ -79,8 +80,14 @@ def effect(gain, fx_data):
 	
 	return fx_data
 
+def show_tooltip(text, x, y, font, screen):
+	text = font.render(text, True, FONT_COLOR)
+	text_rect = text.get_rect()
+	text_rect.center = (x, y)
+	screen.blit(text, text_rect)
+
 while True:
-	data = stream.read(BUFFER)
+	data = mic_stream.read(BUFFER)
 	info = pygame.display.Info()
 	pygame.time.Clock().tick(FPS)
 	screen.fill(BACKGROUND_COLOR)
@@ -158,41 +165,49 @@ while True:
 		screen.blit(peak_freq_text, (info.current_w - (peak_freq_text.get_width() + (FONT_SCALE * 10)), (FONT_SCALE * 35) + offset))
 		screen.blit(peak_note_text, (info.current_w - (peak_note_text.get_width() + (FONT_SCALE * 10)), (FONT_SCALE * 55) + offset))
 
-	bar_width = info.current_w
+	bar_w = info.current_w
 	bar_x = 0
 	bar_y = info.current_h - CTRL_BAR_H
 
-	button_x = int(CTRL_BAR_H/2)
-	button_y = int((info.current_h - CTRL_BAR_H/2))
-	button_radius = 25
+	l_btn_x = int(CTRL_BAR_H/2)
+	l_btn_y = int((info.current_h - CTRL_BAR_H/2))
+	l_btn_r = 25
 
-	knob_x = int(info.current_w - CTRL_BAR_H/2)
-	knob_y = int(info.current_h - CTRL_BAR_H/2)
-	knob_radius = 25
+	r_btn_x = int(info.current_w - CTRL_BAR_H/2)
+	r_btn_y = int(info.current_h - CTRL_BAR_H/2)
+	r_btn_r = 25
 
-	pygame.draw.rect(screen, CTRL_BAR_COLOR, (bar_x, bar_y, bar_width, CTRL_BAR_H))
+	pygame.draw.rect(screen, CTRL_BAR_COLOR, (bar_x, bar_y, bar_w, CTRL_BAR_H))
 	pygame.draw.line(screen, RIDGE_COLOR, (0, (info.current_h - CTRL_BAR_H) + 3), (info.current_w + 1, info.current_h - CTRL_BAR_H + 3), 5)
-	pygame.gfxdraw.aacircle(screen, button_x, button_y, button_radius, BUTTON_COLOR)
-	pygame.gfxdraw.aacircle(screen, knob_x, knob_y, knob_radius, BUTTON_COLOR)
+	pygame.gfxdraw.aacircle(screen, l_btn_x, l_btn_y, l_btn_r, BUTTON_COLOR)
+	pygame.gfxdraw.aacircle(screen, r_btn_x, r_btn_y, r_btn_r, BUTTON_COLOR)
 
 	# ----------------- EVENTS ----------------- #
 	# draw each frame
 	pygame.display.flip()
 	for event in pygame.event.get():
+		mouse_pos = pygame.mouse.get_pos()
 		if event.type == pygame.QUIT:
 			pygame.quit()
 			sys.exit()
 		elif event.type == pygame.VIDEORESIZE:
 			screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+		elif event.type == pygame.MOUSEMOTION:
+			if mouse_pos[0] > l_btn_x - l_btn_r and mouse_pos[0] < l_btn_x + l_btn_r and mouse_pos[1] > l_btn_y - l_btn_r and mouse_pos[1] < l_btn_y + l_btn_r:
+				pygame.gfxdraw.filled_circle(screen, l_btn_x, l_btn_y, l_btn_r, BUTTON_COLOR_HOVER)
+			elif mouse_pos[0] > r_btn_x - r_btn_r and mouse_pos[0] < r_btn_x + r_btn_r and mouse_pos[1] > r_btn_y - r_btn_r and mouse_pos[1] < r_btn_y + r_btn_r:
+				pygame.gfxdraw.filled_circle(screen, r_btn_x, r_btn_y, r_btn_r, BUTTON_COLOR_HOVER)
+			else:
+				pygame.gfxdraw.filled_circle(screen, l_btn_x, l_btn_y, l_btn_r, BUTTON_COLOR)
+				pygame.gfxdraw.filled_circle(screen, r_btn_x, r_btn_y, r_btn_r, BUTTON_COLOR)
 		elif event.type == pygame.MOUSEBUTTONDOWN:
-			mouse_x, mouse_y = pygame.mouse.get_pos()
-			if mouse_x > button_x - button_radius and mouse_x < button_x + button_radius and mouse_y > button_y - button_radius and mouse_y < button_y + button_radius:
+			if mouse_pos[0] > l_btn_x - l_btn_r and mouse_pos[0] < l_btn_x + l_btn_r and mouse_pos[1] > l_btn_y - l_btn_r and mouse_pos[1] < l_btn_y + l_btn_r:
 				view_type_toggle = not view_type_toggle
 		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_ESCAPE:
 				pygame.quit()
 				sys.exit()
 				
-stream.stop_stream()
-stream.close()
+mic_stream.stop_stream()
+mic_stream.close()
 p.terminate()
