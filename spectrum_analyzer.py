@@ -3,37 +3,42 @@ import numpy as np
 import pygame
 import sys
 import math
+from numba import jit
 from pygame import gfxdraw
 
 # visual settings
 FPS = 144
-FONT_PATH = "./assets/Product Sans Regular.ttf"
+FONT_PATH = "./assets/Product Sans Regular.ttf" # font by Google https://befonts.com/product-sans-font.html
 TITLE = "Spectrum Analyzer"
 FONT_COLOR = (255, 255, 255)
-FONT_COLOR_ACCENT = (139, 178, 112)
+FONT_COLOR_ACCENT = (200, 255, 200)
 FONT_SCALE = 1.2
 CH_COLOR = (139, 178, 112, 100)
-CTRL_BAR_H = 100
+CTRL_BAR_H = 135
 CTRL_BAR_COLOR = (34, 36, 30)
+TOGGLE_BUTTON_COLOR = (73, 102, 60)
 BUTTON_COLOR = (139, 178, 112)
-BUTTON_COLOR_HOVER = (63, 74, 52)
-RIDGE_COLOR = (63, 74, 52)
+BUTTON_FREEZE_COLOR = (175, 255, 255)
+BUTTON_COLOR_ACCENT = (200, 255, 200)
+TIERTIARY_COLOR = (63, 74, 52)
 BACKGROUND_COLOR = (27, 27, 27)
 SPECTRUM_COLOR = (139, 178, 112)
 LINE_COLOR = (255, 255, 255, 12)
+CARD_COLOR = (34, 36, 30, 100)
 
 # audio settings
 DECAY = 15
 RATE = 44100
 BUFFER = 1024
-RESOLUTION = 10000
+RESOLUTION = 96000
 MIN_FREQ = 20
 MAX_FREQ = RATE / 2
+GAIN_MAX = 5
 
 pygame.init()
-screen = pygame.display.set_mode((600, 400), pygame.RESIZABLE)
+screen = pygame.display.set_mode((800, 500), pygame.RESIZABLE)
 pygame.display.set_caption(TITLE)
-icon = pygame.image.load('./assets/icon.png')
+icon = pygame.image.load('./assets/icon.png') # icon by Icons8 https://icons8.com
 pygame.display.set_icon(icon)
 
 # init audio streams for in and out
@@ -48,6 +53,16 @@ view_type_toggle = True
 offset = 0
 peak_freq = 0
 peak_notename = "N/A"
+view_btn_color = BUTTON_COLOR
+mic_btn_color = BUTTON_COLOR_ACCENT
+mute_btn_color = TOGGLE_BUTTON_COLOR
+toggle_btn_color = BUTTON_COLOR
+gain_btn_color = BUTTON_COLOR
+view_text = "LINE"
+freeze = False
+mic_toggle = True
+mute_toggle = False
+show_keybinds = False
 
 font_tiny = pygame.font.Font(FONT_PATH, round(FONT_SCALE* 12))
 font_small = pygame.font.Font(FONT_PATH, round(FONT_SCALE* 16))
@@ -76,41 +91,45 @@ def draw_spectrum(SPECTRUM_COLOR, MAX_LENGTH, screen, previous_spectrums, info, 
 			gfxdraw.filled_polygon(screen, points, SPECTRUM_COLOR)
 		y += 1
 
-def effect(gain, fx_data): 
-	
-	return fx_data
-
-def show_tooltip(text, x, y, font, screen):
-	text = font.render(text, True, FONT_COLOR)
-	text_rect = text.get_rect()
-	text_rect.center = (x, y)
-	screen.blit(text, text_rect)
+@jit(nopython=True)
+def gain_fx(a_data, gain):
+	a_data *= gain
+	for i in range(len(a_data)):
+		if a_data[i] > 1:
+			a_data[i] = 1
+		elif a_data[i] < -1:
+			a_data[i] = -1
+	return a_data
 
 while True:
-	data = mic_stream.read(BUFFER)
+	if not freeze:
+		data = mic_stream.read(BUFFER)
+		if not mic_toggle:
+			data = b'\x00' * BUFFER
 	info = pygame.display.Info()
 	pygame.time.Clock().tick(FPS)
 	screen.fill(BACKGROUND_COLOR)
-	title_text = font_large.render(TITLE, True, RIDGE_COLOR)
-	signature_text = font_tiny.render("by Alec Ames", True, RIDGE_COLOR)
+	title_text = font_large.render(TITLE, True, TIERTIARY_COLOR)
+	signature_text = font_tiny.render("by Alec Ames", True, TIERTIARY_COLOR)
 	screen.blit(title_text, (FONT_SCALE * 10, FONT_SCALE * 10))
 	screen.blit(signature_text, (FONT_SCALE * 12, FONT_SCALE * 42))
 
 	spectrum_h_range = info.current_h - CTRL_BAR_H
-
 	audio_data = np.frombuffer(data, dtype=np.int16)
+	audio_data = audio_data.astype(np.float32)	
+	audio_data /= (2 ** 15)
 
-	if fx_toggle:
-		audio_data_effect = effect(gain, audio_data)
-		audio_data = audio_data_effect
-	
+	audio_data = gain_fx(audio_data, gain)
+
+	audio_data *= (2 ** 15)
+	audio_data = audio_data.astype(np.int16)
 	spectrum = np.abs(np.fft.rfft(audio_data, n=RESOLUTION))
 	dp_spectrum = spectrum
 	freqs = create_log_scale()
 	
 	freqs_tuple = [(x, f) for x, f in enumerate(freqs)]
 	dp_spectrum = np.interp(freqs, np.linspace(0, MAX_FREQ, len(dp_spectrum)), dp_spectrum)
-	dp_spectrum /= (2 ** 20)
+	dp_spectrum /= (2 ** 18)
 	if np.max(dp_spectrum) > 1:
 		dp_spectrum /= np.max(dp_spectrum)
 	dp_spectrum *= spectrum_h_range
@@ -120,16 +139,17 @@ while True:
 		previous_spectrums.pop(0)
 
 	# write audio data to output stream
-	out_data = np.int16(audio_data)
-	out_data = out_data.tobytes()
-	out_stream.write(out_data)
+	if not mute_toggle:
+		out_data = np.int16(audio_data)
+		out_data = out_data.tobytes()
+		out_stream.write(out_data)
 	draw_spectrum(SPECTRUM_COLOR, DECAY, screen, previous_spectrums, info, spectrum_h_range, freqs, freqs_tuple)
 
 	# ----------------- UI ----------------- #
 
 	# fx text
-	if fx_toggle: mode_string = "Effect ON"
-	else: mode_string = "Effect OFF"
+	if mic_toggle: mode_string = "MIC ON"
+	else: mode_string = "MIC OFF"
 	mode_text = font_medium.render(mode_string, True, FONT_COLOR)
 	if mode_text.get_width() + title_text.get_width() + (FONT_SCALE * 20) > info.current_w:
 		offset = title_text.get_height() + (FONT_SCALE * 10)
@@ -150,7 +170,7 @@ while True:
 	# peak freq
 	peak_freq_text = font_small.render(f"{int(peak_freq)} Hz", True, FONT_COLOR)
 	peak_note_text = font_small.render(f"{peak_notename}", True, FONT_COLOR)
-	if np.max(dp_spectrum) > 20:
+	if np.max(dp_spectrum) > 40:
 		peak_freq = freqs[np.argmax(dp_spectrum)]
 		peak_note = int(round(12 * np.log2(peak_freq / 440) + 69))
 		if peak_note in note_map:
@@ -165,22 +185,82 @@ while True:
 		screen.blit(peak_freq_text, (info.current_w - (peak_freq_text.get_width() + (FONT_SCALE * 10)), (FONT_SCALE * 35) + offset))
 		screen.blit(peak_note_text, (info.current_w - (peak_note_text.get_width() + (FONT_SCALE * 10)), (FONT_SCALE * 55) + offset))
 
+	# keybind popup
+	if show_keybinds:
+		keybind_title_text = font_medium.render("Keybinds", True, FONT_COLOR)
+		title_rect = keybind_title_text.get_rect()
+		title_rect.center = (info.current_w/2, info.current_h/2 - (FONT_SCALE * info.current_h/3.5))
+		screen.blit(keybind_title_text, title_rect)
+		subtitle_text = font_tiny.render("Click the title to close this menu", True, FONT_COLOR)
+		subtitle_rect = subtitle_text.get_rect()
+		subtitle_rect.center = (info.current_w/2, info.current_h/2 - (FONT_SCALE * info.current_h/3.5) + (FONT_SCALE * 30))
+		screen.blit(subtitle_text, subtitle_rect)
+
+		keybinds = [
+			("View", "V", "Toggle view"),
+			("Mute", "M", "Toggle mute"),
+			("Mic", "N", "Toggle mic"),
+			("Freeze", "F", "Freeze spectrum"),
+			("Gain Up", "W", "Increase gain"),
+			("Gain Down", "S", "Decrease gain"),
+			("Quit", "ESC", "Close the application"),
+		]
+		for i, keybind in enumerate(keybinds):
+			keybind_text = font_tiny.render(f"{keybind[0]} [{keybind[1]}] - {keybind[2]}", True, FONT_COLOR)
+			keybind_rect = keybind_text.get_rect()
+			keybind_rect.center = (info.current_w/2, info.current_h/2 - (FONT_SCALE * info.current_h/3.5) + (FONT_SCALE * 60) + (FONT_SCALE * 20 * i))
+			screen.blit(keybind_text, keybind_rect)
+
 	bar_w = info.current_w
 	bar_x = 0
 	bar_y = info.current_h - CTRL_BAR_H
 
-	l_btn_x = int(CTRL_BAR_H/2)
-	l_btn_y = int((info.current_h - CTRL_BAR_H/2))
-	l_btn_r = 25
+	view_btn_x = int(CTRL_BAR_H/2)
+	view_btn_y = int((info.current_h - CTRL_BAR_H/2))
+	view_btn_r = int(CTRL_BAR_H/3)
 
-	r_btn_x = int(info.current_w - CTRL_BAR_H/2)
-	r_btn_y = int(info.current_h - CTRL_BAR_H/2)
-	r_btn_r = 25
+	mic_btn_x = int(CTRL_BAR_H/2 + CTRL_BAR_H)
+	mic_btn_y = int((info.current_h - CTRL_BAR_H/2))
+	mic_btn_r = int(CTRL_BAR_H/3)
+
+	mute_btn_x = int(CTRL_BAR_H/2 + CTRL_BAR_H*2)
+	mute_btn_y = int((info.current_h - CTRL_BAR_H/2))
+	mute_btn_r = int(CTRL_BAR_H/3)
+
+	gain_btn_x = int(info.current_w - CTRL_BAR_H/2 - CTRL_BAR_H)
+	gain_btn_y = int((info.current_h - CTRL_BAR_H/2))
+	gain_btn_r = int(CTRL_BAR_H/3)
+	gain_btn_angle = int(135 + (gain * 270 / GAIN_MAX))
+
+	toggle_btn_x = int(info.current_w - CTRL_BAR_H/2)
+	toggle_btn_y = int(info.current_h - CTRL_BAR_H/2)
+	toggle_btn_r = int(CTRL_BAR_H/3)
+
+	gain_text = font_medium.render(f"{int(gain/5*100)}", True, BUTTON_COLOR)
+	gain_label_text = font_tiny.render("GAIN", True, TIERTIARY_COLOR)
+	view_label_text = font_small.render(view_text, True, view_btn_color)
+	mic_label_text = font_small.render("MIC", True, mic_btn_color)
+	toggle_label_text = font_small.render("FREEZE", True, toggle_btn_color)
+	mute_label_text = font_small.render("MUTE", True, mute_btn_color)
 
 	pygame.draw.rect(screen, CTRL_BAR_COLOR, (bar_x, bar_y, bar_w, CTRL_BAR_H))
-	pygame.draw.line(screen, RIDGE_COLOR, (0, (info.current_h - CTRL_BAR_H) + 3), (info.current_w + 1, info.current_h - CTRL_BAR_H + 3), 5)
-	pygame.gfxdraw.aacircle(screen, l_btn_x, l_btn_y, l_btn_r, BUTTON_COLOR)
-	pygame.gfxdraw.aacircle(screen, r_btn_x, r_btn_y, r_btn_r, BUTTON_COLOR)
+	pygame.draw.line(screen, TIERTIARY_COLOR, (0, (info.current_h - CTRL_BAR_H) + 1), (info.current_w + 1, info.current_h - CTRL_BAR_H + 1), 2)
+
+	pygame.gfxdraw.aacircle(screen, view_btn_x, view_btn_y, view_btn_r, view_btn_color)
+	pygame.gfxdraw.aacircle(screen, mic_btn_x, mic_btn_y, mic_btn_r, mic_btn_color)
+	pygame.gfxdraw.aacircle(screen, toggle_btn_x, toggle_btn_y, toggle_btn_r, toggle_btn_color)
+	pygame.gfxdraw.aacircle(screen, mute_btn_x, mute_btn_y, mute_btn_r, mute_btn_color)
+	pygame.gfxdraw.arc(screen, gain_btn_x, gain_btn_y, gain_btn_r, 135, 405, TIERTIARY_COLOR)
+	pygame.gfxdraw.arc(screen, gain_btn_x, gain_btn_y, gain_btn_r, 135, gain_btn_angle, gain_btn_color)
+
+	# make label for view button
+	screen.blit(view_label_text, (view_btn_x - (view_label_text.get_width()/2), view_btn_y - view_label_text.get_height()/2))
+	screen.blit(gain_label_text, (gain_btn_x - (gain_label_text.get_width()/2), gain_btn_y + (gain_btn_r * 0.66)))
+	screen.blit(gain_text, (gain_btn_x - (gain_text.get_width()/2), gain_btn_y - gain_text.get_height()/2))
+	screen.blit(mic_label_text, (mic_btn_x - (mic_label_text.get_width()/2), mic_btn_y - mic_label_text.get_height()/2))
+	screen.blit(toggle_label_text, (toggle_btn_x - (toggle_label_text.get_width()/2), toggle_btn_y - toggle_label_text.get_height()/2))
+	screen.blit(mute_label_text, (mute_btn_x - (mute_label_text.get_width()/2), mute_btn_y - mute_label_text.get_height()/2))
+	gain_btn_color = BUTTON_COLOR
 
 	# ----------------- EVENTS ----------------- #
 	# draw each frame
@@ -192,17 +272,105 @@ while True:
 			sys.exit()
 		elif event.type == pygame.VIDEORESIZE:
 			screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-		elif event.type == pygame.MOUSEMOTION:
-			if mouse_pos[0] > l_btn_x - l_btn_r and mouse_pos[0] < l_btn_x + l_btn_r and mouse_pos[1] > l_btn_y - l_btn_r and mouse_pos[1] < l_btn_y + l_btn_r:
-				pygame.gfxdraw.filled_circle(screen, l_btn_x, l_btn_y, l_btn_r, BUTTON_COLOR_HOVER)
-			elif mouse_pos[0] > r_btn_x - r_btn_r and mouse_pos[0] < r_btn_x + r_btn_r and mouse_pos[1] > r_btn_y - r_btn_r and mouse_pos[1] < r_btn_y + r_btn_r:
-				pygame.gfxdraw.filled_circle(screen, r_btn_x, r_btn_y, r_btn_r, BUTTON_COLOR_HOVER)
+			if event.h < 300 or event.w < 600:
+				if event.h < 300: 
+					screen = pygame.display.set_mode((event.w, 300), pygame.RESIZABLE)
+				if event.w < 600: 
+					screen = pygame.display.set_mode((600, event.h), pygame.RESIZABLE)
+					CTRL_BAR_H = int(100)
+				if event.h < 300 and event.w < 600:
+					screen = pygame.display.set_mode((600, 300), pygame.RESIZABLE)
+			else: CTRL_BAR_H = int(event.w/6)
+		elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and mouse_pos[0] > 0 and mouse_pos[0] < 300 and mouse_pos[1] > 0 and mouse_pos[1] < 80:
+			if show_keybinds:
+				show_keybinds = False
 			else:
-				pygame.gfxdraw.filled_circle(screen, l_btn_x, l_btn_y, l_btn_r, BUTTON_COLOR)
-				pygame.gfxdraw.filled_circle(screen, r_btn_x, r_btn_y, r_btn_r, BUTTON_COLOR)
+				show_keybinds = True
+		# scroll up raise gain
+		elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
+			if mouse_pos[0] > gain_btn_x - gain_btn_r and mouse_pos[0] < gain_btn_x + gain_btn_r and mouse_pos[1] > gain_btn_y - gain_btn_r and mouse_pos[1] < gain_btn_y + gain_btn_r:
+				gain += 0.25
+				if gain > GAIN_MAX:
+					gain = GAIN_MAX
+				gain_btn_color = BUTTON_COLOR_ACCENT
+		# scroll down lower gain
+		elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 5:
+			if mouse_pos[0] > gain_btn_x - gain_btn_r and mouse_pos[0] < gain_btn_x + gain_btn_r and mouse_pos[1] > gain_btn_y - gain_btn_r and mouse_pos[1] < gain_btn_y + gain_btn_r:
+				gain -= 0.25
+				if gain < 0:
+					gain = 0
+				gain_btn_color = BUTTON_COLOR_ACCENT
 		elif event.type == pygame.MOUSEBUTTONDOWN:
-			if mouse_pos[0] > l_btn_x - l_btn_r and mouse_pos[0] < l_btn_x + l_btn_r and mouse_pos[1] > l_btn_y - l_btn_r and mouse_pos[1] < l_btn_y + l_btn_r:
+			if mouse_pos[0] > view_btn_x - view_btn_r and mouse_pos[0] < view_btn_x + view_btn_r and mouse_pos[1] > view_btn_y - view_btn_r and mouse_pos[1] < view_btn_y + view_btn_r:
 				view_type_toggle = not view_type_toggle
+				view_btn_color = BUTTON_COLOR_ACCENT
+				if view_type_toggle:
+					view_text = "LINE"
+				else:
+					view_text = "SOLID"
+			elif mouse_pos[0] > toggle_btn_x - toggle_btn_r and mouse_pos[0] < toggle_btn_x + toggle_btn_r and mouse_pos[1] > toggle_btn_y - toggle_btn_r and mouse_pos[1] < toggle_btn_y + toggle_btn_r:
+				freeze = not freeze
+				if freeze:
+					toggle_btn_color = BUTTON_FREEZE_COLOR
+				else:
+					toggle_btn_color = BUTTON_COLOR
+			elif mouse_pos[0] > mic_btn_x - mic_btn_r and mouse_pos[0] < mic_btn_x + mic_btn_r and mouse_pos[1] > mic_btn_y - mic_btn_r and mouse_pos[1] < mic_btn_y + mic_btn_r:
+				mic_toggle = not mic_toggle
+				if mic_toggle:
+					mic_btn_color = BUTTON_COLOR_ACCENT
+				else:
+					mic_btn_color = TOGGLE_BUTTON_COLOR
+			elif mouse_pos[0] > mute_btn_x - mute_btn_r and mouse_pos[0] < mute_btn_x + mute_btn_r and mouse_pos[1] > mute_btn_y - mute_btn_r and mouse_pos[1] < mute_btn_y + mute_btn_r:
+				mute_toggle = not mute_toggle
+				if mute_toggle:
+					mute_btn_color = BUTTON_COLOR_ACCENT
+				else:
+					mute_btn_color = TOGGLE_BUTTON_COLOR
+		# freeze toggle on F
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_f:
+			freeze = not freeze
+			toggle_btn_color = BUTTON_COLOR_ACCENT
+		elif event.type == pygame.KEYUP and event.key == pygame.K_f:
+			freeze = not freeze
+			toggle_btn_color = BUTTON_COLOR
+		# mic toggle on M
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_n:
+			mic_toggle = not mic_toggle
+			if mic_toggle:
+				mic_btn_color = BUTTON_COLOR_ACCENT
+			else:
+				mic_btn_color = BUTTON_COLOR
+		# view toggle on V
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_v:
+			view_type_toggle = not view_type_toggle
+			view_btn_color = BUTTON_COLOR_ACCENT
+			if view_type_toggle:
+				view_text = "LINE"
+			else:
+				view_text = "SOLID"
+		# gain up on W
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_w:
+			gain += 0.25
+			if gain > GAIN_MAX:
+				gain = GAIN_MAX
+			gain_btn_color = BUTTON_COLOR_ACCENT
+		# gain down on S
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_s:
+			gain -= 0.25
+			if gain < 0:
+				gain = 0
+			gain_btn_color = BUTTON_COLOR_ACCENT
+		# playback toggle on L
+		elif event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+			mute_toggle = not mute_toggle
+			if mute_toggle:
+				mute_btn_color = BUTTON_COLOR_ACCENT
+			else:
+				mute_btn_color = BUTTON_COLOR
+		elif event.type == pygame.MOUSEBUTTONUP:
+			view_btn_color = BUTTON_COLOR
+			toggle_btn_color = BUTTON_COLOR
+			freeze = False
 		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_ESCAPE:
 				pygame.quit()
