@@ -9,7 +9,7 @@ from numba import jit
 from pygame import gfxdraw
 
 # visual settings
-FPS = 144
+FPS = 165
 FONT_PATH = "./assets/Product Sans Regular.ttf" # font by Google https://befonts.com/product-sans-font.html
 TITLE = "Spectrum Analyzer"
 FONT_COLOR = (255, 255, 255)
@@ -28,9 +28,10 @@ BACKGROUND_COLOR = (27, 27, 27)
 SPECTRUM_COLOR = (139, 178, 112)
 LINE_COLOR = (255, 255, 255, 12)
 CARD_COLOR = (34, 36, 30, 100)
+MIN_INT, MAX_INT = -32768, 32767
 
 # audio settings
-DECAY = 15 # how many frames for the spectrum to decay
+DECAY = 7 # how many frames for the spectrum to decay
 RATE = 44100 # sample rate
 BUFFER = 1024 # buffer size
 RESOLUTION = 44100 # resolution of the spectrum
@@ -98,14 +99,66 @@ def draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, fre
 @jit(nopython=True)
 def gain_fx(in_data, gain):
 	out_data = in_data * gain
-	out_data = np.clip(out_data, -32768, 32767)
+	out_data = np.clip(out_data, MIN_INT, MAX_INT)
 	return out_data
 
 def filter(in_data, amt):
 	out_data = in_data
-	b, a = signal.butter(2, 50 / (RATE / 2), 'highpass')
+	# b, a = signal.butter(2, 50 / (RATE / 2), 'highpass')
+	# out_data = signal.filtfilt(b, a, out_data)
+	out_data = np.clip(out_data, MIN_INT, MAX_INT)
+	b, a = signal.butter(2, 1000 / (RATE / 2), 'lowpass')
 	out_data = signal.filtfilt(b, a, out_data)
+	# remove abrupt changes in the signal
+	# amplify the signal
+	out_data = gain_fx(out_data, amt)
 	return out_data
+
+class Knob:
+	def __init__(self, x, y, r, min, max, text, color, value):
+		self.x = x
+		self.y = y
+		self.r = r
+		self.min = min
+		self.max = max
+		self.text = text
+		self.value = value
+		self.color = color
+		self.dragging = False
+
+	def handle_mouse_event(self, event):
+		if event.type == pygame.MOUSEBUTTONDOWN:
+			self.dragging = True
+		elif event.type == pygame.MOUSEBUTTONUP:
+			self.dragging = False
+		elif event.type == pygame.MOUSEMOTION and self.dragging:
+			# update current value based on mouse position
+			self.current_value = self.min + (event.pos[0] / pygame.display.get_surface().get_width()) * (self.max - self.min)
+			# make sure current value is within min and max value range
+			self.current_value = max(self.min, min(self.current_value, self.max))
+
+	def draw(self, screen):
+		# draw knob
+		pygame.draw.circle(screen, KNOB_COLOR, (self.x, self.y), self.r)
+		# draw knob indicator
+		indicator_pos = (self.x + self.r * math.cos(2 * math.pi * (self.value - self.min) / (self.max - self.min)), self.y + self.r * math.sin(2 * math.pi * (self.value - self.min) / (self.max - self.min)))
+		pygame.draw.circle(screen, KNOB_INDICATOR_COLOR, indicator_pos, round(self.r / 2))
+
+class Button:
+	def __init__(self, x, y, r, text, color):
+		self.x = x
+		self.y = y
+		self.r = r
+		self.text = text
+		self.color = color
+		self.hovering = False
+		
+	def handle_mouse_event(self, event):
+		if event.type == pygame.MOUSEBUTTONDOWN:
+			self.hovering = True
+		elif event.type == pygame.MOUSEBUTTONUP:
+			self.hovering = False
+
 
 while True:
 	if not freeze:
@@ -113,7 +166,6 @@ while True:
 		if not mic_toggle:
 			data = b'\x00' * BUFFER
 	info = pygame.display.Info()
-	pygame.time.Clock().tick(FPS)
 	screen.fill(BACKGROUND_COLOR)
 	title_text = font_large.render(TITLE, True, TIERTIARY_COLOR)
 	signature_text = font_tiny.render("by Alec Ames", True, TIERTIARY_COLOR)
@@ -135,10 +187,10 @@ while True:
 	dp_spectrum /= (2 ** 18)
 	if np.max(dp_spectrum) > 1:
 		dp_spectrum /= np.max(dp_spectrum)
-	dp_spectrum *= spectrum_h_range
+	dp_spectrum *= spectrum_h_range 
 	dp_spectrum[0], dp_spectrum[-1] = 0, 0  # snaps polygon to bottom of screen
-	previous_spectrums.append(dp_spectrum)
-	if len(previous_spectrums) > DECAY:
+	previous_spectrums.append(dp_spectrum) 
+	if len(previous_spectrums) > DECAY: 
 		previous_spectrums.pop(0)
 
 	# write audio data to output stream
@@ -207,8 +259,9 @@ while True:
 			("Mute", "M", "Toggle mute"),
 			("Mic", "N", "Toggle mic"),
 			("Freeze", "F", "Freeze spectrum"),
-			("Gain Up", "W", "Increase gain"),
-			("Gain Down", "S", "Decrease gain"),
+			("Gain Up/Down", "W/S", "Increase/decrease gain"),
+			("LPF Up/Down", "U/J", "Increase/decrease LP filter"),
+			("HPF Up/Down", "I/K", "Increase/decrease HP filter"),
 			("Quit", "ESC", "Close the application"),
 		]
 		for i, keybind in enumerate(keybinds):
