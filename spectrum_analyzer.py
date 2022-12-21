@@ -103,7 +103,6 @@ def gain_fx(in_data, gain):
 
 def filter(in_data, amt):
 	out_data = in_data
-	# highpass 40hz and under
 	b, a = signal.butter(2, 50 / (RATE / 2), 'highpass')
 	out_data = signal.filtfilt(b, a, out_data)
 	return out_data
