@@ -1,15 +1,17 @@
 # SpectrumTool
 
-A real-time audio spectrum visualizer using Pyaudio and Pygame.
+A real-time audio spectrum visualizer in Python.
 
 ## Features
 
+- Microphone/DI input
 - Antialiased line rendering
 - Toggle between line and filled rendering
-- Adjustable decay rate
+- Clip distortion effect
+- Frequency shifting
 - Adjustable gain
-- Frequency spectrum peak detection
-- Note name display
+- Peak frequency detection
+- Note detection
 
 ## Requirements
 

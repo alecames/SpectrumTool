@@ -207,7 +207,7 @@ def clip_fx(in_data, amount):
 	out_data = out_data * amount
 	return out_data
 
-def freq_shift_fx(in_data, shift):
+def freq_shift_delay_fx(in_data, shift):
 	out_data = in_data
 	fft_data = np.fft.rfft(out_data)
 	fft_data = np.roll(fft_data, int(shift - shift_max/2))
@@ -264,6 +264,7 @@ peak_freq = 0
 peak_notename = ""
 show_keybinds = False
 waves = []
+frame = 0
 
 # init fonts
 font_xtiny = pygame.font.Font(FONT_PATH, round(SCALE* 10))
@@ -310,7 +311,7 @@ while True:
 
 	# effects chain
 	audio_data = clip_fx(audio_data, clip_knob.value)
-	audio_data = freq_shift_fx(audio_data, freq_shift_knob.value)
+	audio_data = freq_shift_delay_fx(audio_data, freq_shift_knob.value)
 	audio_data = gain_fx(audio_data, gain_knob.value)
 
 	# fft for spectrum visualization
@@ -434,6 +435,7 @@ while True:
 			if event.key == pygame.K_ESCAPE:
 				pygame.quit()
 				sys.exit()
+	frame += 1
 
 # --------------------- CLEANUP --------------------- #
 mic_stream.stop_stream()
