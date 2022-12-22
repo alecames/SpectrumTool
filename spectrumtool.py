@@ -32,7 +32,7 @@ from pygame import gfxdraw
 # - 'F' to freeze the spectrum
 # - 'SHIFT' + Click to reset a knob to its default value
 # - 'CTRL' + Click to allow finer control of a knob
-#
+
 # ---------------------------- CONFIG ----------------------------
 # ui settings
 FPS = 165
@@ -56,7 +56,7 @@ SPECTRUM_COLOR = (139, 178, 112)
 LINE_COLOR = (255, 255, 255, 12)
 
 # audio settings
-DECAY = 7 # how many frames for the spectrum to decay
+DECAY = 3 # how many frames for the spectrum to decay
 RATE = 44100 # sample rate
 BUFFER = 1024 # buffer size
 RESOLUTION = 44100 # resolution of the spectrum
@@ -272,7 +272,7 @@ view_button = Button("LINE", True, pygame.K_v, alt_text="SOLID", idle_color=CTRL
 mic_button = Button("MIC", True, pygame.K_n, idle_color=TIERTIARY_COLOR, clicked_color=MIC_BUTTON_COLOR)
 mute_button = Button("MUTE", False, pygame.K_m, idle_color=TIERTIARY_COLOR, clicked_color=CTRL_CLICKED)
 gain_knob = Knob(0, 0.5, "GAIN", 0.1)
-clip_knob = Knob(10, 500, "CLIP", 10)
+clip_knob = Knob(1, 256, "CLIP", 1)
 freq_shift_knob = Knob(0, shift_max, "SHIFT", shift_max/2, percent=False)
 freeze_button = Button("FREEZE", False, pygame.K_f, toggle=False, clicked_color=FREEZE_BUTTON_COLOR)
 note_map = note_map_to_dict()
