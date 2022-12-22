@@ -56,7 +56,7 @@ SPECTRUM_COLOR = (139, 178, 112)
 LINE_COLOR = (255, 255, 255, 12)
 
 # audio settings
-DECAY = 3 # how many frames for the spectrum to decay
+DECAY = 7 # how many frames for the spectrum to decay
 RATE = 44100 # sample rate
 BUFFER = 1024 # buffer size
 RESOLUTION = 44100 # resolution of the spectrum
