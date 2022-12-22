@@ -1,28 +1,59 @@
 # SpectrumTool
 
-A real-time audio spectrum visualizer in Python.
+## Description
+
+ This application is a spectrum analyzer that displays the frequency spectrum of an audio stream in real-time, with optional effects on the audio stream.
 
 ## Features
 
-- Microphone/DI input
-- Antialiased line rendering
-- Toggle between line and filled rendering
-- Clip distortion effect
-- Frequency shifting
-- Adjustable gain
-- Peak frequency detection
-- Note detection
+- Real-time spectrum analyzer
+- Toggle between lines and solid spectrum view
+- Toggle microphone on/off
+- Toggle mute/unmute
+- Freeze the spectrum
+- Frequency shifter
+- Hard clip distortion effect
+- Gain control
+- Keybind Menu
+- Dynamic resizing/rescaling
+
+## Keybinds & Controls
+
+**Click and drag** a knob to adjust its value or **scroll** with mouse wheel over a knob to adjust its value
+Click on a button to toggle its state
+- `ESC` to quit
+- `V` to toggle between lines and solid spectrum view
+- `N` to toggle microphone on/off
+- `M` to toggle mute/unmute
+- `F` to freeze the spectrum
+- `SHIFT` + Click to reset a knob to its default value
+- `CTRL` + Click to allow finer control of a knob
+- Right click on `FREEZE` to toggle freeze mode (other parameters can be adjusted while frozen)
+  
+---
 
 ## Requirements
 
-- PyAudio
-- Numpy 
-- PyGame
+- [PyAudio](https://pypi.org/project/PyAudio/)
+- [Numpy](https://numpy.org)
+- [PyGame](https://www.pygame.org/news)
 
 ## Usage
 
-- Clone repository and run `py spectrumtool.py`  OR download the executable from the releases section
+  Clone repository and run `py spectrumtool.py`  OR download the executable from the releases section.
+
+## Screenshots
+
+![Default view](images/Screenshot%202022-12-22%20044932.png)
+![Frozen spectrum](images/Screenshot%202022-12-22%20045037.png)
+![Keybind menu](images/Screenshot%202022-12-22%20045057.png)
+![Shifted frequency](images/Screenshot%202022-12-22%20045129.png)
+![Smallest window size](images/Screenshot%202022-12-22%20050351.png)
+![Largest window size](images/Screenshot%202022-12-22%20050743.png)
+![Solid view](images/Screenshot%202022-12-22%20050858.png)
+
+<!-- ## Video [![SpectrumTool Demo](link) -->
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.

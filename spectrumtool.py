@@ -18,9 +18,10 @@ from pygame import gfxdraw
 # - Toggle mute/unmute
 # - Freeze the spectrum
 # - Frequency shifter
-# - Clip distortion
+# - Hard clip distortion effect
 # - Gain control
 # - Keybind Menu
+# - Dynamic resizing/rescaling
 #
 # Keybinds & Controls ---------------------------------------------
 # Click and drag a knob to adjust its value OR Scroll with mouse wheel over a knob to adjust its value
@@ -32,6 +33,7 @@ from pygame import gfxdraw
 # - 'F' to freeze the spectrum
 # - 'SHIFT' + Click to reset a knob to its default value
 # - 'CTRL' + Click to allow finer control of a knob
+# - Right click on FREEZE to toggle freeze mode (other parameters can be adjusted while frozen)
 
 # ---------------------------- CONFIG ----------------------------
 # ui settings
@@ -203,11 +205,11 @@ def gain(in_data, gain):
 	out_data = in_data * gain
 	return out_data
 
-def clip_fx(in_data, amount):
+def dist_fx(in_data, amount):
 	out_data = in_data
 	if amount == 1: return out_data
 	out_data = np.clip(out_data, MIN_INT/amount, MAX_INT/amount)
-	out_data = out_data * np.max(in_data) / np.max(np.abs(out_data))
+	out_data = out_data * (amount + 10)/50
 	out_data = np.clip(out_data, MIN_INT, MAX_INT)
 	return out_data
 
@@ -232,9 +234,9 @@ def draw_text(text, font, x, y, align="center", color=FONT_COLOR):
 def draw_keybinds(screen):
 	draw_text("KEYBINDS", font_medium, info.current_w/2, info.current_h/2 - (SCALE * info.current_h/3.5))
 	draw_text("Click the title again to close this menu", font_tiny, info.current_w/2, info.current_h/2 - (SCALE * info.current_h/3.5) + (SCALE * 30))
-	draw_text("Hold CTRL to fine-tune knobs", font_xtiny, info.current_w - SCALE * 5, info.current_h - UNIT - SCALE * 22, color=CTRL_CLICKED, align="right")
-	draw_text("Hold SHIFT to reset knob to defaults", font_xtiny, info.current_w - SCALE * 5, info.current_h - UNIT - SCALE * 10, color=CTRL_CLICKED, align="right")
-	
+	draw_text("Hold CTRL to fine-tune knobs", font_xtiny, info.current_w - SCALE * 5, info.current_h - UNIT - SCALE * 34, color=CTRL_CLICKED, align="right")
+	draw_text("Hold SHIFT to reset knob to defaults", font_xtiny, info.current_w - SCALE * 5, info.current_h - UNIT - SCALE * 22, color=CTRL_CLICKED, align="right")
+	draw_text("Right click on FREEZE button to toggle freeze mode", font_xtiny, info.current_w - SCALE * 5, info.current_h - UNIT - SCALE * 10 , color=CTRL_CLICKED, align="right")
 	pygame.draw.line(screen, FONT_COLOR, (info.current_w/2 - (SCALE * 100), info.current_h/2 - (SCALE * info.current_h/3.5) + (SCALE * 45)), (info.current_w/2 + (SCALE * 100), info.current_h/2 - (SCALE * info.current_h/3.5) + (SCALE * 45)), 1)
 	keybinds = [
 		("View", "V", "Toggle view"),
@@ -282,7 +284,7 @@ view_button = Button("LINE", True, pygame.K_v, alt_text="SOLID", idle_color=CTRL
 mic_button = Button("MIC", True, pygame.K_n, idle_color=TIERTIARY_COLOR, clicked_color=MIC_BUTTON_COLOR)
 mute_button = Button("MUTE", False, pygame.K_m, idle_color=TIERTIARY_COLOR, clicked_color=CTRL_CLICKED)
 gain_knob = Knob(0, 1.2, "GAIN", 0.8)
-clip_knob = Knob(1, 512, "CLIP", 1)
+dist_knob = Knob(1, 512, "DIST", 1)
 freq_shift_knob = Knob(0, shift_max, "SHIFT", shift_max/2, percent=False)
 freeze_button = Button("FREEZE", False, pygame.K_f, toggle=False, clicked_color=FREEZE_BUTTON_COLOR)
 
@@ -299,29 +301,23 @@ def note_equivalent(note_map, tmp_freq):
 	return freq,notename
 
 while True:
-	info = pygame.display.Info()
 	if not freeze_button.value: # freeze the spectrum (and audio)
 		data = mic_stream.read(BUFFER)
 		if not mic_button.value: # mute mic
 			data = b'\x00' * BUFFER
-	screen.fill(BACKGROUND_COLOR)
-	# title
-	draw_text(TITLE, font_large, SCALE * 10, SCALE * 20, color=TIERTIARY_COLOR, align="left")
-	draw_text("by Alec Ames", font_tiny, SCALE * 32, SCALE * 37, color=TIERTIARY_COLOR, align="left")
-	spectrum_h_range = info.current_h - UNIT # compensate for the control bar
-
-	# load audio
 	audio_data = np.frombuffer(data, dtype=np.int16)
 
 	# effects chain
-	audio_data = clip_fx(audio_data, clip_knob.value)
+	audio_data = dist_fx(audio_data, dist_knob.value)
 	audio_data = freq_shift_delay_fx(audio_data, freq_shift_knob.value)
 	audio_data = gain(audio_data, gain_knob.value)
 
 	# fft for spectrum visualization
 	spectrum = np.abs(np.fft.rfft(audio_data, n=RESOLUTION))
 
-	# make visual representation of spectrum
+	# visual representation of spectrum
+	info = pygame.display.Info()
+	spectrum_h_range = info.current_h - UNIT # compensate for the control bar
 	dp_spectrum = spectrum
 	freqs = create_log_scale()
 	freqs_tuple = [(x, f) for x, f in enumerate(freqs)]
@@ -335,21 +331,24 @@ while True:
 	if len(previous_spectrums) > DECAY: # pops off the oldest spectrum if the list is too long
 		previous_spectrums.pop(0)
 
-	# write audio data to output stream if not muted
+	# audio data to output stream
 	if not mute_button.value:
 		out_stream.write(np.int16(audio_data).tobytes())
 
+	# ----------------- UI ----------------- #
 	# draws spectrum
+	screen.fill(BACKGROUND_COLOR)
+	draw_text(TITLE, font_large, SCALE * 10, SCALE * 20, color=TIERTIARY_COLOR, align="left")
+	draw_text("by Alec Ames", font_tiny, SCALE * 32, SCALE * 37, color=TIERTIARY_COLOR, align="left")
 	draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, freqs_tuple)
 
-	# ----------------- UI ----------------- #
 	# mic on/off indicator
 	if mic_button.value: mode_string = "MIC ON"
 	else: mode_string = "MIC OFF"
 	mode_text = font_medium.render(mode_string, True, FONT_COLOR)
 	screen.blit(mode_text, (info.current_w - (mode_text.get_width() + (SCALE * 10)),  (SCALE * 10)))
 
-	# only show mouse cursor if in window
+	# only shows mouse cursor if in window
 	mouse_pos = pygame.mouse.get_pos()
 	try: 
 		if mouse_pos[1] < spectrum_h_range:
@@ -392,7 +391,7 @@ while True:
 	mute_button.draw(screen, UNIT/2 + gap*2, (info.current_h - UNIT/2), radius)
 	freeze_button.draw(screen, UNIT/2 + gap*3, info.current_h - UNIT/2, radius)
 	freq_shift_knob.draw(screen, info.current_w - UNIT/2 - gap*2, (info.current_h - UNIT/2), radius)
-	clip_knob.draw(screen, info.current_w - UNIT/2 - gap, (info.current_h - UNIT/2), radius)
+	dist_knob.draw(screen, info.current_w - UNIT/2 - gap, (info.current_h - UNIT/2), radius)
 	gain_knob.draw(screen, info.current_w - UNIT/2, (info.current_h - UNIT/2), radius)
 
 	# --------------------- EVENTS --------------------- #
@@ -402,7 +401,7 @@ while True:
 
 		mouse_pos = pygame.mouse.get_pos()
 		gain_knob.handle_event(event, mouse_pos)
-		clip_knob.handle_event(event, mouse_pos)
+		dist_knob.handle_event(event, mouse_pos)
 		freq_shift_knob.handle_event(event, mouse_pos)
 		mute_button.handle_event(event, mouse_pos)
 		mic_button.handle_event(event, mouse_pos)
