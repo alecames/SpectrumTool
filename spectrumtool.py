@@ -3,6 +3,8 @@ import numpy as np
 import pygame
 import sys
 import math
+import time
+import os
 from numba import jit
 from pygame import gfxdraw
 
@@ -56,7 +58,7 @@ SPECTRUM_COLOR = (139, 178, 112)
 LINE_COLOR = (255, 255, 255, 12)
 
 # audio settings
-DECAY = 7 # how many frames for the spectrum to decay
+DECAY = 4 # how many frames for the spectrum to decay
 RATE = 44100 # sample rate
 BUFFER = 1024 # buffer size
 RESOLUTION = 44100 # resolution of the spectrum
@@ -117,20 +119,22 @@ class Knob:
 
 	def draw(self, screen, x, y, r):
 		x, y, r = int(x), int(y), int(r)
+		self.font_value = pygame.font.Font(FONT_PATH, round(SCALE*r/1.66))
+		self.font_label = pygame.font.Font(FONT_PATH, round(SCALE*r/3.33))
 		self.rect = pygame.Rect(x - r, y - r, r * 2, r * 2)
 		self.angle_value = math.floor(135 + ((self.value - self.min) * 270 / (self.max - self.min)))
 		if self.percent:
-			text_rect = font_medium.render(f"{int(((self.value - self.min)/((self.max - self.min))*100))}", True, self.value_color)
+			text_rect = self.font_value.render(f"{int(((self.value - self.min)/((self.max - self.min))*100))}", True, self.value_color)
 		else:
-			text_rect = font_medium.render(f"{int(self.value - shift_max/2)}", True, self.value_color)
-		label_rect_text = font_tiny.render(self.text, True, self.alt_color)
+			text_rect = self.font_value.render(f"{int(self.value - shift_max/2)}", True, self.value_color)
+		label_rect_text = self.font_label.render(self.text, True, self.alt_color)
 		pygame.gfxdraw.arc(screen, x, y, r, 135, 405, self.alt_color)
 		pygame.gfxdraw.arc(screen, x, y, r, 135, self.angle_value, self.color)
 		screen.blit(label_rect_text, (x - (label_rect_text.get_width()/2), y + (r * 0.66)))
 		screen.blit(text_rect, (x - (text_rect.get_width()/2), y - text_rect.get_height()/2))
 
 class Button:
-	def __init__(self, text, value, keybind, toggle=True, alt_text="", clicked_color=CTRL_CLICKED, idle_color=CTRL_IDLE):
+	def __init__(self, text, value, keybind=None, toggle=True, alt_text="", clicked_color=CTRL_CLICKED, idle_color=CTRL_IDLE):
 		self.toggle = toggle
 		self.value = value
 		self.keybind = keybind
@@ -160,10 +164,49 @@ class Button:
 
 	def draw(self, screen, x, y, r):
 		x,y,r = int(x), int(y), int(r)
+		self.font = pygame.font.Font(FONT_PATH, round(SCALE*r/2.5))
 		self.rect = pygame.Rect(x - r, y - r, r * 2, r * 2)
-		self.text_rect = font_small.render(self.text, True, self.color)
+		self.text_rect = self.font.render(self.text, True, self.color)
 		pygame.gfxdraw.aacircle(screen, x, y, r, self.color)
 		screen.blit(self.text_rect, (x - (self.text_rect.get_width()/2), y - self.text_rect.get_height()/2))
+
+class Rectangle:
+	def __init__(self, text, value, keybind=None, toggle=True, alt_text="", clicked_color=CTRL_CLICKED, idle_color=CTRL_IDLE, outline=0):
+		self.toggle = toggle
+		self.value = value
+		self.keybind = keybind
+		self.color_map = {True: clicked_color,False: idle_color}
+		alt_text = text if alt_text == "" else alt_text
+		self.text_map = {True: text, False: alt_text}
+		self.text = self.text_map[self.value]
+		self.color = self.color_map[value]
+		self.outline = outline
+		self.rect = pygame.Rect(0, 0, 0, 0)
+
+	def handle_event(self, event, mouse_pos):
+		if self.rect.collidepoint(mouse_pos):
+			if event.type == pygame.MOUSEBUTTONDOWN:
+				if self.toggle: self.value = not self.value
+				else: self.value = True
+		if event.type == pygame.MOUSEBUTTONUP:
+			if not self.toggle: self.value = False
+		if event.type == pygame.KEYDOWN: 
+			if event.key == self.keybind:
+				if self.toggle: self.value = not self.value
+				else: self.value = True
+		elif event.type == pygame.KEYUP:
+			if event.key == self.keybind:
+				if not self.toggle: self.value = False
+		self.color = self.color_map[self.value]
+		self.text = self.text_map[self.value]
+
+	def draw(self, screen, x, y, w, h):
+		x,y,w,h = int(x), int(y), int(w), int(h)
+		self.font = pygame.font.Font(FONT_PATH, round(SCALE*h/2.5))
+		self.rect = pygame.Rect(x, y, w, h)
+		self.text_rect = self.font.render(self.text, True, self.color)
+		pygame.draw.rect(screen, self.color, self.rect, self.outline, border_radius=5)
+		screen.blit(self.text_rect, (x + (w/2) - (self.text_rect.get_width()/2), y + (h/2) - self.text_rect.get_height()/2))
 
 # ------------------------------ FUNCTIONS ------------------------------ #
 
@@ -186,10 +229,26 @@ def draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, fre
 	for s in previous_spectrums[::-1]:
 		points = [(x * info.current_w / len(freqs), y * (value / DECAY) + spectrum_h_range - value) for (x, f), value in zip(freqs_tuple, s)]
 		if view_button.value:
-			gfxdraw.aapolygon(screen, points, SPECTRUM_COLOR)
+			pygame.draw.aalines(screen, SPECTRUM_COLOR, False, points, 1)
 		else:
-			gfxdraw.filled_polygon(screen, points, SPECTRUM_COLOR)
+			dp_spectrum[0], dp_spectrum[-1] = 0, 0  # snaps polygon to bottom of screen
+			pygame.draw.polygon(screen, points, SPECTRUM_COLOR)
 		y += 1
+
+def show_file_browser():
+	files = [f for f in os.listdir("./audio/") if f.endswith(".wav") or f.endswith(".mp3") or f.endswith(".m4a")]
+	buttons = []
+	buttons.append(Rectangle("BACK", False, toggle=False))
+	buttons.append(Rectangle("QUIT", False, toggle=False))
+	buttons.append(Rectangle("PLAY", False, toggle=False))
+	buttons.append(Rectangle("PAUSE", False, toggle=False))
+	buttons = [Rectangle(f, False, toggle=False, outline=1) for f in files]
+	
+
+	# draw the buttons
+	for i in range(len(buttons)):
+		buttons[i].draw(screen, info.current_w - 80, SCALE * 85 + (i * 20 * SCALE), 60 * SCALE, 20 * SCALE)
+
 
 @jit(nopython=True)
 def gain_fx(in_data, gain):
@@ -319,7 +378,7 @@ while True:
 	if np.max(dp_spectrum) > 1: 
 		dp_spectrum /= np.max(dp_spectrum)
 	dp_spectrum *= spectrum_h_range * 0.95 # prevents from touching the top of the screen
-	dp_spectrum[0], dp_spectrum[-1] = 0, 0  # snaps polygon to bottom of screen
+
 	previous_spectrums.append(dp_spectrum) # adds spectrum to list of previous spectrums (for decay)
 	if len(previous_spectrums) > DECAY: # pops off the oldest spectrum if the list is too long
 		previous_spectrums.pop(0)
@@ -369,7 +428,8 @@ while True:
 		screen.blit(peak_note_text, (info.current_w - (peak_note_text.get_width() + (SCALE * 10)), (SCALE * 55)))
 
 	# keybind popup
-	if show_keybinds: draw_keybinds(screen)		
+	if show_keybinds: draw_keybinds(screen)	
+	show_file_browser()
 
 	# draw control bar
 	pygame.draw.rect(screen, CTRL_BAR_COLOR, (0, info.current_h - UNIT, info.current_w, UNIT))
@@ -399,6 +459,8 @@ while True:
 		mic_button.handle_event(event, mouse_pos)
 		view_button.handle_event(event, mouse_pos)
 		freeze_button.handle_event(event, mouse_pos)
+
+
 
 		if event.type == pygame.QUIT:
 			pygame.quit()
