@@ -3,7 +3,7 @@ import numpy as np
 import pygame
 import sys
 import math
-import time
+import wave
 import os
 from numba import jit
 from pygame import gfxdraw
@@ -128,8 +128,8 @@ class Knob:
 		else:
 			text_rect = self.font_value.render(f"{int(self.value - shift_max/2)}", True, self.value_color)
 		label_rect_text = self.font_label.render(self.text, True, self.alt_color)
-		pygame.gfxdraw.arc(screen, x, y, r, 135, 405, self.alt_color)
-		pygame.gfxdraw.arc(screen, x, y, r, 135, self.angle_value, self.color)
+		gfxdraw.arc(screen, x, y, r, 135, 405, self.alt_color)
+		gfxdraw.arc(screen, x, y, r, 135, self.angle_value, self.color)
 		screen.blit(label_rect_text, (x - (label_rect_text.get_width()/2), y + (r * 0.66)))
 		screen.blit(text_rect, (x - (text_rect.get_width()/2), y - text_rect.get_height()/2))
 
@@ -167,11 +167,11 @@ class Button:
 		self.font = pygame.font.Font(FONT_PATH, round(SCALE*r/2.5))
 		self.rect = pygame.Rect(x - r, y - r, r * 2, r * 2)
 		self.text_rect = self.font.render(self.text, True, self.color)
-		pygame.gfxdraw.aacircle(screen, x, y, r, self.color)
+		gfxdraw.aacircle(screen, x, y, r, self.color)
 		screen.blit(self.text_rect, (x - (self.text_rect.get_width()/2), y - self.text_rect.get_height()/2))
 
-class Rectangle:
-	def __init__(self, text, value, keybind=None, toggle=True, alt_text="", clicked_color=CTRL_CLICKED, idle_color=CTRL_IDLE, outline=0):
+class AudioButton:
+	def __init__(self, text, value, keybind=None, toggle=True, alt_text="", clicked_color=CTRL_CLICKED, idle_color=CTRL_IDLE, outline=0, is_audio=False):
 		self.toggle = toggle
 		self.value = value
 		self.keybind = keybind
@@ -179,24 +179,28 @@ class Rectangle:
 		alt_text = text if alt_text == "" else alt_text
 		self.text_map = {True: text, False: alt_text}
 		self.text = self.text_map[self.value]
+		self.display_text = self.text
 		self.color = self.color_map[value]
 		self.outline = outline
+		self.is_audio = is_audio
+		self.wave_data = None
+		self.chunk_index = 0
 		self.rect = pygame.Rect(0, 0, 0, 0)
 
 	def handle_event(self, event, mouse_pos):
 		if self.rect.collidepoint(mouse_pos):
 			if event.type == pygame.MOUSEBUTTONDOWN:
-				if self.toggle: self.value = not self.value
-				else: self.value = True
+				if self.is_audio:
+					wave_file = wave.open("audio/" + self.text, "rb")
+					wave_data_bytes = wave_file.readframes(wave_file.getnframes())
+					wave_file.close()
+					self.wave_data = np.frombuffer(wave_data_bytes, dtype=np.int16)
+					self.color = CTRL_CLICKED
+				else:
+					if self.toggle: self.value = not self.value
+					else: self.value = True
 		if event.type == pygame.MOUSEBUTTONUP:
 			if not self.toggle: self.value = False
-		if event.type == pygame.KEYDOWN: 
-			if event.key == self.keybind:
-				if self.toggle: self.value = not self.value
-				else: self.value = True
-		elif event.type == pygame.KEYUP:
-			if event.key == self.keybind:
-				if not self.toggle: self.value = False
 		self.color = self.color_map[self.value]
 		self.text = self.text_map[self.value]
 
@@ -204,12 +208,13 @@ class Rectangle:
 		x,y,w,h = int(x), int(y), int(w), int(h)
 		self.font = pygame.font.Font(FONT_PATH, round(SCALE*h/2.5))
 		self.rect = pygame.Rect(x, y, w, h)
-		self.text_rect = self.font.render(self.text, True, self.color)
-		pygame.draw.rect(screen, self.color, self.rect, self.outline, border_radius=5)
+		if len(self.text) > int(w/7): self.display_text = self.text[:int(w/7)] + "..."
+		else: self.display_text = self.text
+		self.text_rect = self.font.render(self.display_text, True, self.color)
+		pygame.draw.rect(screen, self.color, self.rect, self.outline, border_radius=3)
 		screen.blit(self.text_rect, (x + (w/2) - (self.text_rect.get_width()/2), y + (h/2) - self.text_rect.get_height()/2))
 
 # ------------------------------ FUNCTIONS ------------------------------ #
-
 def note_map_to_dict():
 	note_map = {}
 	with open("./assets/note.map", "r") as f:
@@ -231,24 +236,17 @@ def draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, fre
 		if view_button.value:
 			pygame.draw.aalines(screen, SPECTRUM_COLOR, False, points, 1)
 		else:
-			dp_spectrum[0], dp_spectrum[-1] = 0, 0  # snaps polygon to bottom of screen
-			pygame.draw.polygon(screen, points, SPECTRUM_COLOR)
+			points[0] = (0, spectrum_h_range)
+			points[-1] = (info.current_w, spectrum_h_range)
+			pygame.draw.polygon(screen, SPECTRUM_COLOR, points)
 		y += 1
 
 def show_file_browser():
-	files = [f for f in os.listdir("./audio/") if f.endswith(".wav") or f.endswith(".mp3") or f.endswith(".m4a")]
-	buttons = []
-	buttons.append(Rectangle("BACK", False, toggle=False))
-	buttons.append(Rectangle("QUIT", False, toggle=False))
-	buttons.append(Rectangle("PLAY", False, toggle=False))
-	buttons.append(Rectangle("PAUSE", False, toggle=False))
-	buttons = [Rectangle(f, False, toggle=False, outline=1) for f in files]
-	
-
-	# draw the buttons
-	for i in range(len(buttons)):
-		buttons[i].draw(screen, info.current_w - 80, SCALE * 85 + (i * 20 * SCALE), 60 * SCALE, 20 * SCALE)
-
+	global waves
+	b_width = info.current_w/12
+	waves[0].draw(screen, info.current_w - (b_width+25), SCALE * 85, b_width * SCALE, 20 * SCALE)
+	for i in range(len(waves)):
+		waves[i].draw(screen, info.current_w - (b_width+25), SCALE * 85 + (i * 22 * SCALE), b_width * SCALE, 20 * SCALE)
 
 @jit(nopython=True)
 def gain_fx(in_data, gain):
@@ -318,6 +316,7 @@ shift_max = 30
 peak_freq = 0
 peak_notename = ""
 show_keybinds = False
+waves = []
 
 # init fonts
 font_xtiny = pygame.font.Font(FONT_PATH, round(SCALE* 10))
@@ -334,6 +333,11 @@ gain_knob = Knob(0, 0.5, "GAIN", 0.1)
 clip_knob = Knob(1, 256, "CLIP", 1)
 freq_shift_knob = Knob(0, shift_max, "SHIFT", shift_max/2, percent=False)
 freeze_button = Button("FREEZE", False, pygame.K_f, toggle=False, clicked_color=FREEZE_BUTTON_COLOR)
+
+files = [f for f in os.listdir("./audio/") if f.endswith(".wav") or f.endswith(".mp3") or f.endswith(".m4a")]
+waves = [(AudioButton("STOP", False, toggle=False, outline=1))]
+waves += [AudioButton(f, False, toggle=False, outline=-1, is_audio=True) for f in files]
+
 note_map = note_map_to_dict()
 
 # main event loop
@@ -360,11 +364,13 @@ while True:
 
 	# load audio
 	audio_data = np.frombuffer(data, dtype=np.int16)
+	show_file_browser()
 
 	# effects chain
 	audio_data = clip_fx(audio_data, clip_knob.value)
 	audio_data = freq_shift_fx(audio_data, freq_shift_knob.value)
 	audio_data = gain_fx(audio_data, gain_knob.value)
+
 
 	# fft for spectrum visualization
 	spectrum = np.abs(np.fft.rfft(audio_data, n=RESOLUTION))
@@ -385,15 +391,12 @@ while True:
 
 	# write audio data to output stream if not muted
 	if not mute_button.value:
-		out_data = np.int16(audio_data)
-		out_data = out_data.tobytes()
-		out_stream.write(out_data)
+		out_stream.write(np.int16(audio_data).tobytes())
 
 	# draws spectrum
 	draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, freqs_tuple)
 
 	# ----------------- UI ----------------- #
-
 	# mic on/off indicator
 	if mic_button.value: mode_string = "MIC ON"
 	else: mode_string = "MIC OFF"
@@ -429,7 +432,6 @@ while True:
 
 	# keybind popup
 	if show_keybinds: draw_keybinds(screen)	
-	show_file_browser()
 
 	# draw control bar
 	pygame.draw.rect(screen, CTRL_BAR_COLOR, (0, info.current_h - UNIT, info.current_w, UNIT))
@@ -448,6 +450,7 @@ while True:
 	gain_knob.draw(screen, info.current_w - UNIT/2, (info.current_h - UNIT/2), radius)
 
 	# --------------------- EVENTS --------------------- #
+
 	pygame.display.flip()
 	for event in pygame.event.get():
 
@@ -460,7 +463,8 @@ while True:
 		view_button.handle_event(event, mouse_pos)
 		freeze_button.handle_event(event, mouse_pos)
 
-
+		for i in range(len(waves)):
+			waves[i].handle_event(event, mouse_pos)
 
 		if event.type == pygame.QUIT:
 			pygame.quit()
