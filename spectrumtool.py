@@ -86,10 +86,8 @@ class Knob:
 			self.color = CTRL_HOVER_COLOR
 			if event.type == pygame.MOUSEWHEEL:
 				if event.y > 0:
-					# increment by 3 degrees
 					self.value += 10 * self.max / 270
 				else:
-					# decrement by 3 degrees
 					self.value -= 10 * self.max / 270
 				self.value = np.clip(self.value, self.min, self.max)
 			if event.type == pygame.MOUSEBUTTONDOWN:
