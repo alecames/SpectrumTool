@@ -86,9 +86,9 @@ class Knob:
 			self.color = CTRL_HOVER_COLOR
 			if event.type == pygame.MOUSEWHEEL:
 				if event.y > 0:
-					self.value += 10 * self.max / 270
+					self.value += 5 * self.max / 270
 				else:
-					self.value -= 10 * self.max / 270
+					self.value -= 5 * self.max / 270
 				self.value = np.clip(self.value, self.min, self.max)
 			if event.type == pygame.MOUSEBUTTONDOWN:
 				self.dragging = True
@@ -145,11 +145,14 @@ class Button:
 
 	def handle_event(self, event, mouse_pos):
 		if self.rect.collidepoint(mouse_pos):
-			if event.type == pygame.MOUSEBUTTONDOWN:
+			if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
 				if self.toggle: self.value = not self.value
 				else: self.value = True
-		if event.type == pygame.MOUSEBUTTONUP:
-			if not self.toggle: self.value = False
+			elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+				if not self.toggle: 
+					self.value = not self.value
+			if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+				if not self.toggle: self.value = False
 		if event.type == pygame.KEYDOWN: 
 			if event.key == self.keybind:
 				if self.toggle: self.value = not self.value
@@ -196,15 +199,16 @@ def draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, fre
 		y += 1
 
 @jit(nopython=True)
-def gain_fx(in_data, gain):
+def gain(in_data, gain):
 	out_data = in_data * gain
-	out_data = np.clip(out_data, MIN_INT, MAX_INT)
 	return out_data
 
 def clip_fx(in_data, amount):
 	out_data = in_data
+	if amount == 1: return out_data
 	out_data = np.clip(out_data, MIN_INT/amount, MAX_INT/amount)
-	out_data = out_data * amount
+	out_data = out_data * np.max(in_data) / np.max(np.abs(out_data))
+	out_data = np.clip(out_data, MIN_INT, MAX_INT)
 	return out_data
 
 def freq_shift_delay_fx(in_data, shift):
@@ -259,7 +263,7 @@ out_stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, output=True, 
 
 # init variables
 previous_spectrums = []
-shift_max = 30
+shift_max = 48
 peak_freq = 0
 peak_notename = ""
 show_keybinds = False
@@ -277,8 +281,8 @@ font_large = pygame.font.Font(FONT_PATH, round(SCALE* 28))
 view_button = Button("LINE", True, pygame.K_v, alt_text="SOLID", idle_color=CTRL_CLICKED, clicked_color=CTRL_CLICKED)
 mic_button = Button("MIC", True, pygame.K_n, idle_color=TIERTIARY_COLOR, clicked_color=MIC_BUTTON_COLOR)
 mute_button = Button("MUTE", False, pygame.K_m, idle_color=TIERTIARY_COLOR, clicked_color=CTRL_CLICKED)
-gain_knob = Knob(0, 0.5, "GAIN", 0.1)
-clip_knob = Knob(1, 256, "CLIP", 1)
+gain_knob = Knob(0, 1.2, "GAIN", 0.8)
+clip_knob = Knob(1, 512, "CLIP", 1)
 freq_shift_knob = Knob(0, shift_max, "SHIFT", shift_max/2, percent=False)
 freeze_button = Button("FREEZE", False, pygame.K_f, toggle=False, clicked_color=FREEZE_BUTTON_COLOR)
 
@@ -312,7 +316,7 @@ while True:
 	# effects chain
 	audio_data = clip_fx(audio_data, clip_knob.value)
 	audio_data = freq_shift_delay_fx(audio_data, freq_shift_knob.value)
-	audio_data = gain_fx(audio_data, gain_knob.value)
+	audio_data = gain(audio_data, gain_knob.value)
 
 	# fft for spectrum visualization
 	spectrum = np.abs(np.fft.rfft(audio_data, n=RESOLUTION))
