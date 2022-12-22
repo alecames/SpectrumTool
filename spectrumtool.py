@@ -3,8 +3,6 @@ import numpy as np
 import pygame
 import sys
 import math
-import wave
-import os
 from numba import jit
 from pygame import gfxdraw
 
@@ -405,7 +403,7 @@ while True:
 		mic_button.handle_event(event, mouse_pos)
 		view_button.handle_event(event, mouse_pos)
 		freeze_button.handle_event(event, mouse_pos)
-		
+
 		if event.type == pygame.QUIT:
 			pygame.quit()
 			sys.exit()
