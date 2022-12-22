@@ -1,4 +1,4 @@
-# Spectrum Visualizer
+# SpectrumTool
 
 A real-time audio spectrum visualizer using Pyaudio and Pygame.
 
