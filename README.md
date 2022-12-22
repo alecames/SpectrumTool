@@ -19,7 +19,7 @@ A real-time audio spectrum visualizer using Pyaudio and Pygame.
 
 ## Usage
 
-- Clone repository and run `py visualizer.py`  OR download the executable from the releases section
+- Clone repository and run `py spectrumtool.py`  OR download the executable from the releases section
 
 ## License
 
