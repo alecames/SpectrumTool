@@ -170,50 +170,6 @@ class Button:
 		gfxdraw.aacircle(screen, x, y, r, self.color)
 		screen.blit(self.text_rect, (x - (self.text_rect.get_width()/2), y - self.text_rect.get_height()/2))
 
-class AudioButton:
-	def __init__(self, text, value, keybind=None, toggle=True, alt_text="", clicked_color=CTRL_CLICKED, idle_color=CTRL_IDLE, outline=0, is_audio=False):
-		self.toggle = toggle
-		self.value = value
-		self.keybind = keybind
-		self.color_map = {True: clicked_color,False: idle_color}
-		alt_text = text if alt_text == "" else alt_text
-		self.text_map = {True: text, False: alt_text}
-		self.text = self.text_map[self.value]
-		self.display_text = self.text
-		self.color = self.color_map[value]
-		self.outline = outline
-		self.is_audio = is_audio
-		self.wave_data = None
-		self.chunk_index = 0
-		self.rect = pygame.Rect(0, 0, 0, 0)
-
-	def handle_event(self, event, mouse_pos):
-		if self.rect.collidepoint(mouse_pos):
-			if event.type == pygame.MOUSEBUTTONDOWN:
-				if self.is_audio:
-					wave_file = wave.open("audio/" + self.text, "rb")
-					wave_data_bytes = wave_file.readframes(wave_file.getnframes())
-					wave_file.close()
-					self.wave_data = np.frombuffer(wave_data_bytes, dtype=np.int16)
-					self.color = CTRL_CLICKED
-				else:
-					if self.toggle: self.value = not self.value
-					else: self.value = True
-		if event.type == pygame.MOUSEBUTTONUP:
-			if not self.toggle: self.value = False
-		self.color = self.color_map[self.value]
-		self.text = self.text_map[self.value]
-
-	def draw(self, screen, x, y, w, h):
-		x,y,w,h = int(x), int(y), int(w), int(h)
-		self.font = pygame.font.Font(FONT_PATH, round(SCALE*h/2.5))
-		self.rect = pygame.Rect(x, y, w, h)
-		if len(self.text) > int(w/7): self.display_text = self.text[:int(w/7)] + "..."
-		else: self.display_text = self.text
-		self.text_rect = self.font.render(self.display_text, True, self.color)
-		pygame.draw.rect(screen, self.color, self.rect, self.outline, border_radius=3)
-		screen.blit(self.text_rect, (x + (w/2) - (self.text_rect.get_width()/2), y + (h/2) - self.text_rect.get_height()/2))
-
 # ------------------------------ FUNCTIONS ------------------------------ #
 def note_map_to_dict():
 	note_map = {}
@@ -240,13 +196,6 @@ def draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, fre
 			points[-1] = (info.current_w, spectrum_h_range)
 			pygame.draw.polygon(screen, SPECTRUM_COLOR, points)
 		y += 1
-
-def show_file_browser():
-	global waves
-	b_width = info.current_w/12
-	waves[0].draw(screen, info.current_w - (b_width+25), SCALE * 85, b_width * SCALE, 20 * SCALE)
-	for i in range(len(waves)):
-		waves[i].draw(screen, info.current_w - (b_width+25), SCALE * 85 + (i * 22 * SCALE), b_width * SCALE, 20 * SCALE)
 
 @jit(nopython=True)
 def gain_fx(in_data, gain):
@@ -334,10 +283,6 @@ clip_knob = Knob(1, 256, "CLIP", 1)
 freq_shift_knob = Knob(0, shift_max, "SHIFT", shift_max/2, percent=False)
 freeze_button = Button("FREEZE", False, pygame.K_f, toggle=False, clicked_color=FREEZE_BUTTON_COLOR)
 
-files = [f for f in os.listdir("./audio/") if f.endswith(".wav") or f.endswith(".mp3") or f.endswith(".m4a")]
-waves = [(AudioButton("STOP", False, toggle=False, outline=1))]
-waves += [AudioButton(f, False, toggle=False, outline=-1, is_audio=True) for f in files]
-
 note_map = note_map_to_dict()
 
 # main event loop
@@ -364,13 +309,11 @@ while True:
 
 	# load audio
 	audio_data = np.frombuffer(data, dtype=np.int16)
-	show_file_browser()
 
 	# effects chain
 	audio_data = clip_fx(audio_data, clip_knob.value)
 	audio_data = freq_shift_fx(audio_data, freq_shift_knob.value)
 	audio_data = gain_fx(audio_data, gain_knob.value)
-
 
 	# fft for spectrum visualization
 	spectrum = np.abs(np.fft.rfft(audio_data, n=RESOLUTION))
@@ -462,10 +405,7 @@ while True:
 		mic_button.handle_event(event, mouse_pos)
 		view_button.handle_event(event, mouse_pos)
 		freeze_button.handle_event(event, mouse_pos)
-
-		for i in range(len(waves)):
-			waves[i].handle_event(event, mouse_pos)
-
+		
 		if event.type == pygame.QUIT:
 			pygame.quit()
 			sys.exit()
