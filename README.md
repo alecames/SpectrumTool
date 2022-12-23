@@ -36,6 +36,7 @@ Click on a button to toggle its state
 
 ## Requirements
 
+- Microphone/DI input
 - [PyAudio](https://pypi.org/project/PyAudio/)
 - [Numpy](https://numpy.org)
 - [PyGame](https://www.pygame.org/news)
@@ -46,7 +47,15 @@ Click on a button to toggle its state
 
 ## Screenshots
 
-<!-- ## Video [![SpectrumTool Demo](link) -->
+![Audio input](images/Screenshot%202022-12-22%20220225.png)
+![Fullscreen](images/Screenshot%202022-12-22%20215729.png)
+![Solid spectrum](images/Screenshot%202022-12-22%20220232.png)
+![Shifted frozen spectrum](images/Screenshot%202022-12-22%20220250.png)
+![Shifted frozen spectrum solid](images/Screenshot%202022-12-22%20220245.png)
+![Keybind menu](images/Screenshot%202022-12-22%20220314.png)
+![Save message](images/Screenshot%202022-12-22%20220437.png)
+
+<!-- TODO: ## Video [![SpectrumTool Demo](link) -->
 
 ## License
 
