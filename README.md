@@ -39,11 +39,12 @@
 - [PyAudio](https://pypi.org/project/PyAudio/)
 - [Numpy](https://numpy.org)
 - [PyGame](https://www.pygame.org/news)
+  
+*Note: The executable version does not require the Python dependencies, only mic/DI.*
 
 ## Usage
 
-  Clone repository and run `py spectrumtool.py` **OR** download the `SpectrumTool.v.x.x.exe` executable from the [Releases](https://github.com/alecames/spectrum-tool/releases/latest) section.
-  The executable is a standalone application and does not require the `assets/` folder or the `out/` folder to be present in the same directory.
+  Clone repository and run `py spectrumtool.py` **OR** download the `SpectrumTool.v.x.x.exe` executable from the [Releases](https://github.com/alecames/spectrum-tool/releases/latest) section. The executable is a standalone application and does not require the `assets/` folder or the `out/` folder to be present in the same directory.
 
 ## Screenshots
 
