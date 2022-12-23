@@ -387,18 +387,18 @@ while True:
 	draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, freqs_tuple)
 
 	# audio data to output stream
+	if record_button.value: 
+		if output_file is None:
+			output_file = np.int16(audio_data)/(RATE/4)
+		else:
+			output_file = np.append(output_file, np.int16(audio_data)/(RATE/4))
+	elif output_file is not None:
+		frame_index = 0
+		out_file_name = save_file(output_file)
+		output_file = None
+	if out_file_name is not None:
+		save_confirmation(screen, out_file_name)
 	if not mute_button.value:
-		if record_button.value: 
-			if output_file is None:
-				output_file = np.int16(audio_data)/(RATE/10)
-			else:
-				output_file = np.append(output_file, np.int16(audio_data)/(RATE/10))
-		elif output_file is not None:
-			frame_index = 0
-			out_file_name = save_file(output_file)
-			output_file = None
-		if out_file_name is not None:
-			save_confirmation(screen, out_file_name)
 		out_stream.write(np.int16(audio_data).tobytes())
 
 	# ------------------------------ UI ------------------------------ #
