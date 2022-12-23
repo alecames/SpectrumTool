@@ -46,8 +46,6 @@ Click on a button to toggle its state
 
 ## Screenshots
 
-
-
 <!-- ## Video [![SpectrumTool Demo](link) -->
 
 ## License

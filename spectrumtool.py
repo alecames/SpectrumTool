@@ -13,7 +13,7 @@ from pygame import gfxdraw
 # #6843577
 # COSC 4P98 - Final Project
 # Brock University 11/19/22
-# Version 1.2
+# Version 1.4
 #
 # This application is a spectrum analyzer that displays the frequency spectrum of an audio stream in real-time.
 # Features ------------------------------------------------------
@@ -49,7 +49,7 @@ FONT_COLOR = (255, 255, 255)
 FONT_COLOR_ACCENT = (200, 255, 200)
 SCALE = 1.2
 CH_COLOR = (139, 178, 112, 100)
-UNIT = 800/8
+UNIT = 800/7
 CTRL_BAR_COLOR = (34, 36, 30)
 CTRL_IDLE = (139, 178, 112)
 VIEW_BUTTON_COLOR = (73, 102, 60)
@@ -485,7 +485,7 @@ while True:
 					screen = pygame.display.set_mode((650, event.h), pygame.RESIZABLE)
 				if event.h < 350 and event.w < 650: 
 					screen = pygame.display.set_mode((650, 350), pygame.RESIZABLE)
-			UNIT = min(max(int(event.w/10), 85), 160)
+			UNIT = min(max(int(event.w/7), 95), 144)
 		# handle keybind menu toggle
 		elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and mouse_pos[0] > 0 and mouse_pos[0] < 300 and mouse_pos[1] > 0 and mouse_pos[1] < 50:
 			if show_keybinds: show_keybinds = False
