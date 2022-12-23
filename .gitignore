@@ -1,1 +1,7 @@
 /__pycache__
+/build
+/dist
+/out
+SpectrumTool.spec
+build_script
+*.exe

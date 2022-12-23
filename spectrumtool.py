@@ -2,14 +2,18 @@ import pyaudio
 import numpy as np
 import pygame
 import sys
+import os
 import math
+import datetime
+from scipy.io.wavfile import write
 from numba import jit
 from pygame import gfxdraw
 
 # Created by Alec Ames
 # #6843577
 # COSC 4P98 - Final Project
-# Brock University 12/19/22
+# Brock University 11/19/22
+# Version 1.2
 #
 # This application is a spectrum analyzer that displays the frequency spectrum of an audio stream in real-time.
 # Features ------------------------------------------------------
@@ -22,6 +26,7 @@ from pygame import gfxdraw
 # - Gain control
 # - Keybind Menu
 # - Dynamic resizing/rescaling
+# - Record audio to .wav file
 #
 # Keybinds & Controls ---------------------------------------------
 # Click and drag a knob to adjust its value OR Scroll with mouse wheel over a knob to adjust its value
@@ -31,6 +36,7 @@ from pygame import gfxdraw
 # - 'N' to toggle microphone on/off
 # - 'M' to toggle mute/unmute
 # - 'F' to freeze the spectrum
+# - 'R' to record audio to .wav file
 # - 'SHIFT' + Click to reset a knob to its default value
 # - 'CTRL' + Click to allow finer control of a knob
 # - Right click on FREEZE to toggle freeze mode (other parameters can be adjusted while frozen)
@@ -38,13 +44,12 @@ from pygame import gfxdraw
 # ---------------------------- CONFIG ----------------------------
 # ui settings
 FPS = 165
-FONT_PATH = "./assets/Product Sans Regular.ttf" # font by Google https://befonts.com/product-sans-font.html
 TITLE = "SpectrumTool"
 FONT_COLOR = (255, 255, 255)
 FONT_COLOR_ACCENT = (200, 255, 200)
 SCALE = 1.2
 CH_COLOR = (139, 178, 112, 100)
-UNIT = 800/7
+UNIT = 800/8
 CTRL_BAR_COLOR = (34, 36, 30)
 CTRL_IDLE = (139, 178, 112)
 VIEW_BUTTON_COLOR = (73, 102, 60)
@@ -174,13 +179,42 @@ class Button:
 		screen.blit(self.text_rect, (x - (self.text_rect.get_width()/2), y - self.text_rect.get_height()/2))
 
 # ------------------------------ FUNCTIONS ------------------------------ #
-def note_map_to_dict():
+def get_font_path():
+	if getattr(sys, 'frozen', False):
+		font_path = os.path.join(sys._MEIPASS, "assets/Product Sans Regular.ttf")
+	else:
+		font_path = "assets/Product Sans Regular.ttf"
+	return font_path
+
+def get_icon_path():
+	if getattr(sys, 'frozen', False):
+		icon_path = os.path.join(sys._MEIPASS, "assets/icon.png")
+	else:
+		icon_path = "assets/icon.png"
+	return icon_path
+
+def get_note_map():
 	note_map = {}
-	with open("./assets/note.map", "r") as f:
+	if getattr(sys, 'frozen', False):
+		file_path = os.path.join(sys._MEIPASS, "assets/note.map")
+	else:
+		file_path = "assets/note.map"
+	with open(file_path, "r") as f:
 		for line in f:
 			line = line.split()
 			note_map[int(line[0])] = line[1]
 	return note_map
+
+def save_confirmation(screen, filename): 
+	global frame_index
+	frame_max = 100
+	if frame_index < frame_max:
+		if frame_index < (frame_max*2/3):
+			alpha = 150
+		else:
+			alpha = 150-(((frame_index-(frame_max*2/3))**2)/(frame_max/10))
+		draw_text(f"Saved file to {filename}", font_tiny, info.current_w/2, info.current_h - UNIT - SCALE*16, align="center", color=FONT_COLOR, alpha=alpha)
+		frame_index += 1
 
 def create_log_scale():
 	log_min_freq, log_max_freq = math.log(MIN_FREQ), math.log(MAX_FREQ)
@@ -200,27 +234,7 @@ def draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, fre
 			pygame.draw.polygon(screen, SPECTRUM_COLOR, points)
 		y += 1
 
-@jit(nopython=True)
-def gain(in_data, gain):
-	out_data = in_data * gain
-	return out_data
-
-def dist_fx(in_data, amount):
-	out_data = in_data
-	if amount == 1: return out_data
-	out_data = np.clip(out_data, MIN_INT/amount, MAX_INT/amount)
-	out_data = out_data * (amount + 10)/50
-	out_data = np.clip(out_data, MIN_INT, MAX_INT)
-	return out_data
-
-def freq_shift_delay_fx(in_data, shift):
-	out_data = in_data
-	fft_data = np.fft.rfft(out_data)
-	fft_data = np.roll(fft_data, int(shift - shift_max/2))
-	out_data = np.fft.irfft(fft_data)
-	return out_data
-
-def draw_text(text, font, x, y, align="center", color=FONT_COLOR):
+def draw_text(text, font, x, y, align="center", color=FONT_COLOR, alpha=255):
 	rendered_text = font.render(text, True, color)
 	text_rect = rendered_text.get_rect()
 	if align == "center":
@@ -229,7 +243,27 @@ def draw_text(text, font, x, y, align="center", color=FONT_COLOR):
 		text_rect.center = (int(x + rendered_text.get_width()/2), y)
 	elif align == "right":
 		text_rect.center = (int(x - rendered_text.get_width()/2), y)
+	rendered_text.set_alpha(alpha)
 	screen.blit(rendered_text, text_rect)
+
+# main event loop
+def note_equivalent(note_map, tmp_freq):
+	freq = tmp_freq
+	note = int(round(12 * np.log2(freq / 440) + 69))
+	if note in note_map:
+		notename = note_map[note]
+	else:
+		notename = ""
+	return freq,notename
+
+def save_file(output_file):
+	timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+	out_file_name = f'out/recorded_audio_{timestamp}.wav'
+	if not os.path.exists('out'):
+		os.makedirs('out')
+	write(out_file_name, 44100, output_file)
+	output_file = None
+	return out_file_name
 
 def draw_keybinds(screen):
 	draw_text("KEYBINDS", font_medium, info.current_w/2, info.current_h/2 - (SCALE * info.current_h/3.5))
@@ -243,18 +277,41 @@ def draw_keybinds(screen):
 		("Mute", "M", "Toggle mute"),
 		("Mic", "N", "Toggle mic"),
 		("Freeze", "F", "Freeze spectrum"),
+		("Record", "R", "Record audio to .wav file"), 
 		("Quit", "ESC", "Close the application")]
 	for i, keybind in enumerate(keybinds):
 		keybind_text = font_tiny.render(f"{keybind[0]} [{keybind[1]}] - {keybind[2]}", True, FONT_COLOR)
 		keybind_rect = keybind_text.get_rect()
 		keybind_rect.center = (info.current_w/2, info.current_h/2 - (SCALE * info.current_h/3.5) + (SCALE * 60) + (SCALE * 20 * i))
 		screen.blit(keybind_text, keybind_rect)
+# ------------------------------ AUDIO FX ------------------------------ #
+@jit(nopython=True)
+def gain(in_data, gain):
+	out_data = in_data * gain
+	return out_data
+
+def dist_fx(in_data, amount):
+	out_data = in_data
+	if amount == 1: return out_data
+	out_data = np.clip(out_data, MIN_INT/amount, MAX_INT/amount)
+	out_data = out_data * (amount + 10)/12
+	out_data = np.clip(out_data, MIN_INT, MAX_INT)
+	return out_data
+
+def freq_shift_delay_fx(in_data, shift):
+	out_data = in_data
+	fft_data = np.fft.rfft(out_data)
+	fft_data = np.roll(fft_data, int(shift - shift_max/2))
+	out_data = np.fft.irfft(fft_data)
+	return out_data
+
 
 # ---------------------------- MAIN ---------------------------- #
 pygame.init() 
 screen = pygame.display.set_mode((800, 500), pygame.RESIZABLE)
+FONT_PATH = get_font_path() # font by Google https://befonts.com/product-sans-font.html
 pygame.display.set_caption(TITLE)
-icon = pygame.image.load('./assets/icon.png') # application icon by Icons8 https://icons8.com
+icon = pygame.image.load(get_icon_path()) # application icon by Icons8 https://icons8.com
 pygame.display.set_icon(icon)
 audio_data = np.zeros(BUFFER)
 
@@ -269,8 +326,9 @@ shift_max = 48
 peak_freq = 0
 peak_notename = ""
 show_keybinds = False
-waves = []
-frame = 0
+output_file = None
+frame_index = 0
+out_file_name = None
 
 # init fonts
 font_xtiny = pygame.font.Font(FONT_PATH, round(SCALE* 10))
@@ -286,19 +344,10 @@ mute_button = Button("MUTE", False, pygame.K_m, idle_color=TIERTIARY_COLOR, clic
 gain_knob = Knob(0, 1.2, "GAIN", 0.8)
 dist_knob = Knob(1, 512, "DIST", 1)
 freq_shift_knob = Knob(0, shift_max, "SHIFT", shift_max/2, percent=False)
+record_button = Button("REC", False, pygame.K_r, idle_color=CTRL_IDLE, clicked_color=MIC_BUTTON_COLOR)
 freeze_button = Button("FREEZE", False, pygame.K_f, toggle=False, clicked_color=FREEZE_BUTTON_COLOR)
 
-note_map = note_map_to_dict()
-
-# main event loop
-def note_equivalent(note_map, tmp_freq):
-	freq = tmp_freq
-	note = int(round(12 * np.log2(freq / 440) + 69))
-	if note in note_map:
-		notename = note_map[note]
-	else:
-		notename = ""
-	return freq,notename
+note_map = get_note_map()
 
 while True:
 	if not freeze_button.value: # freeze the spectrum (and audio)
@@ -331,17 +380,28 @@ while True:
 	if len(previous_spectrums) > DECAY: # pops off the oldest spectrum if the list is too long
 		previous_spectrums.pop(0)
 
-	# audio data to output stream
-	if not mute_button.value:
-		out_stream.write(np.int16(audio_data).tobytes())
-
-	# ----------------- UI ----------------- #
 	# draws spectrum
 	screen.fill(BACKGROUND_COLOR)
 	draw_text(TITLE, font_large, SCALE * 10, SCALE * 20, color=TIERTIARY_COLOR, align="left")
 	draw_text("by Alec Ames", font_tiny, SCALE * 32, SCALE * 37, color=TIERTIARY_COLOR, align="left")
 	draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, freqs_tuple)
 
+	# audio data to output stream
+	if not mute_button.value:
+		if record_button.value: 
+			if output_file is None:
+				output_file = np.int16(audio_data)/(RATE/10)
+			else:
+				output_file = np.append(output_file, np.int16(audio_data)/(RATE/10))
+		elif output_file is not None:
+			frame_index = 0
+			out_file_name = save_file(output_file)
+			output_file = None
+		if out_file_name is not None:
+			save_confirmation(screen, out_file_name)
+		out_stream.write(np.int16(audio_data).tobytes())
+
+	# ------------------------------ UI ------------------------------ #
 	# mic on/off indicator
 	if mic_button.value: mode_string = "MIC ON"
 	else: mode_string = "MIC OFF"
@@ -390,12 +450,12 @@ while True:
 	mic_button.draw(screen, UNIT/2 + gap, (info.current_h - UNIT/2), radius)
 	mute_button.draw(screen, UNIT/2 + gap*2, (info.current_h - UNIT/2), radius)
 	freeze_button.draw(screen, UNIT/2 + gap*3, info.current_h - UNIT/2, radius)
+	record_button.draw(screen, UNIT/2 + gap*4, info.current_h - UNIT/2, radius)
 	freq_shift_knob.draw(screen, info.current_w - UNIT/2 - gap*2, (info.current_h - UNIT/2), radius)
 	dist_knob.draw(screen, info.current_w - UNIT/2 - gap, (info.current_h - UNIT/2), radius)
 	gain_knob.draw(screen, info.current_w - UNIT/2, (info.current_h - UNIT/2), radius)
 
 	# --------------------- EVENTS --------------------- #
-
 	pygame.display.flip()
 	for event in pygame.event.get():
 
@@ -407,29 +467,25 @@ while True:
 		mic_button.handle_event(event, mouse_pos)
 		view_button.handle_event(event, mouse_pos)
 		freeze_button.handle_event(event, mouse_pos)
+		record_button.handle_event(event, mouse_pos)
 
 		if event.type == pygame.QUIT:
+			if record_button.value:
+				pygame.display.flip()
+				save_file(output_file)
 			pygame.quit()
 			sys.exit()
 		# handle window resize
-		elif event.type == pygame.VIDEORESIZE: 
+		if event.type == pygame.VIDEORESIZE: 
 			screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-			if event.h < 350 or event.w < 600:
+			if event.h < 350 or event.w < 650:
 				if event.h < 350: 
 					screen = pygame.display.set_mode((event.w, 350), pygame.RESIZABLE)
-				if event.w < 600: 
-					screen = pygame.display.set_mode((600, event.h), pygame.RESIZABLE)
-					UNIT = int(100)
-				if event.h < 350 and event.w < 600:
-					screen = pygame.display.set_mode((600, 350), pygame.RESIZABLE)
-			elif event.h > 900 or event.w > 1400:
-				if event.h > 900:
-					screen = pygame.display.set_mode((event.w, 900), pygame.RESIZABLE)
-				if event.w > 1400:
-					screen = pygame.display.set_mode((1400, event.h), pygame.RESIZABLE)
-				if event.h > 900 and event.w > 1400:
-					screen = pygame.display.set_mode((1400, 900), pygame.RESIZABLE)
-			else: UNIT = int(event.w/7)
+				if event.w < 650: 
+					screen = pygame.display.set_mode((650, event.h), pygame.RESIZABLE)
+				if event.h < 350 and event.w < 650: 
+					screen = pygame.display.set_mode((650, 350), pygame.RESIZABLE)
+			UNIT = min(max(int(event.w/10), 85), 160)
 		# handle keybind menu toggle
 		elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and mouse_pos[0] > 0 and mouse_pos[0] < 300 and mouse_pos[1] > 0 and mouse_pos[1] < 50:
 			if show_keybinds: show_keybinds = False
@@ -438,7 +494,6 @@ while True:
 			if event.key == pygame.K_ESCAPE:
 				pygame.quit()
 				sys.exit()
-	frame += 1
 
 # --------------------- CLEANUP --------------------- #
 mic_stream.stop_stream()
