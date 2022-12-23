@@ -478,13 +478,13 @@ while True:
 		# handle window resize
 		if event.type == pygame.VIDEORESIZE: 
 			screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-			if event.h < 350 or event.w < 650:
-				if event.h < 350: 
-					screen = pygame.display.set_mode((event.w, 350), pygame.RESIZABLE)
+			if event.h < 400 or event.w < 650:
+				if event.h < 400: 
+					screen = pygame.display.set_mode((event.w, 400), pygame.RESIZABLE)
 				if event.w < 650: 
 					screen = pygame.display.set_mode((650, event.h), pygame.RESIZABLE)
-				if event.h < 350 and event.w < 650: 
-					screen = pygame.display.set_mode((650, 350), pygame.RESIZABLE)
+				if event.h < 400 and event.w < 650: 
+					screen = pygame.display.set_mode((650, 400), pygame.RESIZABLE)
 			UNIT = min(max(int(event.w/7), 95), 144)
 		# handle keybind menu toggle
 		elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and mouse_pos[0] > 0 and mouse_pos[0] < 300 and mouse_pos[1] > 0 and mouse_pos[1] < 50:
