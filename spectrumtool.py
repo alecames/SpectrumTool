@@ -1,10 +1,10 @@
-import pyaudio
+from pyaudio import PyAudio, paInt16
 import numpy as np
-import pygame
 import sys
-import os
-import math
-import datetime
+import pygame
+from os import path, makedirs
+from math import log, exp, floor
+from datetime import datetime
 from scipy.io.wavfile import write
 from numba import jit
 from pygame import gfxdraw
@@ -127,7 +127,7 @@ class Knob:
 		self.font_value = pygame.font.Font(FONT_PATH, round(SCALE*r/1.66))
 		self.font_label = pygame.font.Font(FONT_PATH, round(SCALE*r/3.33))
 		self.rect = pygame.Rect(x - r, y - r, r * 2, r * 2)
-		self.angle_value = math.floor(135 + ((self.value - self.min) * 270 / (self.max - self.min)))
+		self.angle_value = floor(135 + ((self.value - self.min) * 270 / (self.max - self.min)))
 		if self.percent:
 			text_rect = self.font_value.render(f"{int(((self.value - self.min)/((self.max - self.min))*100))}", True, self.value_color)
 		else:
@@ -181,14 +181,14 @@ class Button:
 # ------------------------------ FUNCTIONS ------------------------------ #
 def get_font_path():
 	if getattr(sys, 'frozen', False):
-		font_path = os.path.join(sys._MEIPASS, "assets/Product Sans Regular.ttf")
+		font_path = path.join(sys._MEIPASS, "assets/Product Sans Regular.ttf")
 	else:
 		font_path = "assets/Product Sans Regular.ttf"
 	return font_path
 
 def get_icon_path():
 	if getattr(sys, 'frozen', False):
-		icon_path = os.path.join(sys._MEIPASS, "assets/icon.png")
+		icon_path = path.join(sys._MEIPASS, "assets/icon.png")
 	else:
 		icon_path = "assets/icon.png"
 	return icon_path
@@ -196,7 +196,7 @@ def get_icon_path():
 def get_note_map():
 	note_map = {}
 	if getattr(sys, 'frozen', False):
-		file_path = os.path.join(sys._MEIPASS, "assets/note.map")
+		file_path = path.join(sys._MEIPASS, "assets/note.map")
 	else:
 		file_path = "assets/note.map"
 	with open(file_path, "r") as f:
@@ -217,9 +217,9 @@ def save_confirmation(screen, filename):
 		frame_index += 1
 
 def create_log_scale():
-	log_min_freq, log_max_freq = math.log(MIN_FREQ), math.log(MAX_FREQ)
+	log_min_freq, log_max_freq = log(MIN_FREQ), log(MAX_FREQ)
 	log_freqs = [log_min_freq + i * (log_max_freq - log_min_freq) / info.current_w for i in range(info.current_w)]
-	freqs = [math.exp(f) for f in log_freqs]
+	freqs = [exp(f) for f in log_freqs]
 	return freqs
 
 def draw_spectrum(screen, previous_spectrums, info, spectrum_h_range, freqs, freqs_tuple):
@@ -257,10 +257,10 @@ def note_equivalent(note_map, tmp_freq):
 	return freq,notename
 
 def save_file(output_file):
-	timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+	timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 	out_file_name = f'out/recorded_audio_{timestamp}.wav'
-	if not os.path.exists('out'):
-		os.makedirs('out')
+	if not path.exists('out'):
+		makedirs('out')
 	write(out_file_name, 44100, output_file)
 	output_file = None
 	return out_file_name
@@ -316,9 +316,9 @@ pygame.display.set_icon(icon)
 audio_data = np.zeros(BUFFER)
 
 # init audio streams for in and out
-p = pyaudio.PyAudio()
-mic_stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, input=True, frames_per_buffer=BUFFER)
-out_stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, output=True, frames_per_buffer=BUFFER)
+p = PyAudio()
+mic_stream = p.open(format=paInt16, channels=1, rate=RATE, input=True, frames_per_buffer=BUFFER)
+out_stream = p.open(format=paInt16, channels=1, rate=RATE, output=True, frames_per_buffer=BUFFER)
 
 # init variables
 previous_spectrums = []
