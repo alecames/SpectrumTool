@@ -6,31 +6,30 @@
 
 ## Features
 
-- Real-time spectrum analyzer
-- Toggle between lines and solid spectrum view
-- Toggle microphone on/off
-- Toggle mute/unmute
-- Freeze the spectrum
-- Frequency shifter
+- Real-time frequency spectrum analyzer
+- Solid and line spectrum view
+- Microphone on/off toggle
+- Output mute/unmute toggle
+- Spectrum freezing
+- Frequency shifting
 - Hard clip distortion effect
 - Gain control
-- Keybind Menu
-- Dynamic resizing/rescaling
+- Keybind menu
+- Dynamic UI resizing/scaling
 - Recording to .wav file (will create `out/` folder if it doesn't exist)
 
 ## Keybinds & Controls
 
-**Click and drag** a knob to adjust its value or **scroll** with mouse wheel over a knob to adjust its value
-Click on a button to toggle its state
+**Click and drag** a knob to adjust its value or **scroll** with mouse wheel over a knob to adjust its value. Click on a button to toggle its state.
 - `ESC` to quit
 - `V` to toggle between lines and solid spectrum view
 - `N` to toggle microphone on/off
 - `M` to toggle mute/unmute
 - `F` to freeze the spectrum
 - `R` to record audio to .wav file
-- `SHIFT` + Click to reset a knob to its default value
-- `CTRL` + Click to allow finer control of a knob
-- Right click on `FREEZE` to toggle freeze mode (other parameters can be adjusted while frozen)
+- `SHIFT + LEFT CLICK` to reset a knob to its default value
+- `CTRL + LEFT CLICK` to allow finer control of a knob
+- `RIGHT CLICK` on FREEZE to toggle freeze mode (other parameters can be adjusted while frozen)
   
 ---
 

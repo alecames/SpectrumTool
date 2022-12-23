@@ -17,16 +17,17 @@ from pygame import gfxdraw
 #
 # This application is a spectrum analyzer that displays the frequency spectrum of an audio stream in real-time.
 # Features ------------------------------------------------------
-# - Toggle between lines and solid spectrum view
-# - Toggle microphone on/off
-# - Toggle mute/unmute
-# - Freeze the spectrum
-# - Frequency shifter
+# - Real-time frequency spectrum analyzer
+# - Solid and line spectrum view
+# - Microphone on/off toggle
+# - Output mute/unmute toggle
+# - Spectrum freezing
+# - Frequency shifting
 # - Hard clip distortion effect
 # - Gain control
-# - Keybind Menu
-# - Dynamic resizing/rescaling
-# - Record audio to .wav file
+# - Keybind menu
+# - Dynamic UI resizing/rescaling
+# - Recording to .wav file (will create out/ folder if it doesn't exist)
 #
 # Keybinds & Controls ---------------------------------------------
 # Click and drag a knob to adjust its value OR Scroll with mouse wheel over a knob to adjust its value
