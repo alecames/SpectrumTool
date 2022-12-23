@@ -44,7 +44,7 @@ Click on a button to toggle its state
 ## Usage
 
   Clone repository and run `py spectrumtool.py` **OR** download the `SpectrumTool.v.x.x.exe` executable from the releases section.
-  The executable is a standalone application and does not require the `/assets/` folder or the `/out/` folder to be present in the same directory.
+  The executable is a standalone application and does not require the `assets/` folder or the `out/` folder to be present in the same directory.
 
 ## Screenshots
 
