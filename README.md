@@ -60,4 +60,4 @@ Click on a button to toggle its state
 
 ## License
 
-This project is licensed under the MIT License - [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - See [LICENSE](LICENSE) file for details.
