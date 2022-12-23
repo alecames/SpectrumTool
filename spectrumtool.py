@@ -41,7 +41,7 @@ from pygame import gfxdraw
 # - 'CTRL' + Click to allow finer control of a knob
 # - Right click on FREEZE to toggle freeze mode (other parameters can be adjusted while frozen)
 
-# ---------------------------- CONFIG ----------------------------
+# ---------------------------- CONFIG ---------------------------- #
 # ui settings
 FPS = 165
 TITLE = "SpectrumTool"
@@ -63,15 +63,15 @@ SPECTRUM_COLOR = (139, 178, 112)
 LINE_COLOR = (255, 255, 255, 12)
 
 # audio settings
-DECAY = 4 # how many frames for the spectrum to decay
+DECAY = 4 # how many spectrums to draw
 RATE = 44100 # sample rate
 BUFFER = 1024 # buffer size
 RESOLUTION = 44100 # resolution of the spectrum
 MIN_FREQ = 20 # min freq to display
 MAX_FREQ = RATE / 2 # max freq to display
-MIN_INT, MAX_INT = -32768, 32767
+MIN_INT, MAX_INT = -32768, 32767 # int16 min and max
 
-# ---------------------------- CLASSES ----------------------------
+# ---------------------------- CLASSES ---------------------------- #
 class Knob:
 	def __init__(self, min, max, text, value, percent=True):
 		self.color = CTRL_IDLE
@@ -178,7 +178,7 @@ class Button:
 		gfxdraw.aacircle(screen, x, y, r, self.color)
 		screen.blit(self.text_rect, (x - (self.text_rect.get_width()/2), y - self.text_rect.get_height()/2))
 
-# ------------------------------ FUNCTIONS ------------------------------ #
+# ---------------------------- FUNCTIONS ---------------------------- #
 def get_font_path():
 	if getattr(sys, 'frozen', False):
 		font_path = path.join(sys._MEIPASS, "assets/Product Sans Regular.ttf")
@@ -246,7 +246,6 @@ def draw_text(text, font, x, y, align="center", color=FONT_COLOR, alpha=255):
 	rendered_text.set_alpha(alpha)
 	screen.blit(rendered_text, text_rect)
 
-# main event loop
 def note_equivalent(note_map, tmp_freq):
 	freq = tmp_freq
 	note = int(round(12 * np.log2(freq / 440) + 69))
@@ -284,7 +283,8 @@ def draw_keybinds(screen):
 		keybind_rect = keybind_text.get_rect()
 		keybind_rect.center = (info.current_w/2, info.current_h/2 - (SCALE * info.current_h/3.5) + (SCALE * 60) + (SCALE * 20 * i))
 		screen.blit(keybind_text, keybind_rect)
-# ------------------------------ AUDIO FX ------------------------------ #
+
+# ---------------------------- AUDIO FX ---------------------------- #
 @jit(nopython=True)
 def gain(in_data, gain):
 	out_data = in_data * gain
@@ -304,7 +304,6 @@ def freq_shift_delay_fx(in_data, shift):
 	fft_data = np.roll(fft_data, int(shift - shift_max/2))
 	out_data = np.fft.irfft(fft_data)
 	return out_data
-
 
 # ---------------------------- MAIN ---------------------------- #
 pygame.init() 
@@ -346,7 +345,6 @@ dist_knob = Knob(1, 512, "DIST", 1)
 freq_shift_knob = Knob(0, shift_max, "SHIFT", shift_max/2, percent=False)
 record_button = Button("REC", False, pygame.K_r, idle_color=CTRL_IDLE, clicked_color=MIC_BUTTON_COLOR)
 freeze_button = Button("FREEZE", False, pygame.K_f, toggle=False, clicked_color=FREEZE_BUTTON_COLOR)
-
 note_map = get_note_map()
 
 while True:
@@ -401,7 +399,7 @@ while True:
 	if not mute_button.value:
 		out_stream.write(np.int16(audio_data).tobytes())
 
-	# ------------------------------ UI ------------------------------ #
+	# ---------------------------- UI ---------------------------- #
 	# mic on/off indicator
 	if mic_button.value: mode_string = "MIC ON"
 	else: mode_string = "MIC OFF"
@@ -455,7 +453,7 @@ while True:
 	dist_knob.draw(screen, info.current_w - UNIT/2 - gap, (info.current_h - UNIT/2), radius)
 	gain_knob.draw(screen, info.current_w - UNIT/2, (info.current_h - UNIT/2), radius)
 
-	# --------------------- EVENTS --------------------- #
+	# ---------------------------- EVENTS ---------------------------- #
 	pygame.display.flip()
 	for event in pygame.event.get():
 
@@ -495,7 +493,7 @@ while True:
 				pygame.quit()
 				sys.exit()
 
-# --------------------- CLEANUP --------------------- #
+# ---------------------------- AUDIO CLEANUP ---------------------------- #
 mic_stream.stop_stream()
 mic_stream.close()
 p.terminate()
