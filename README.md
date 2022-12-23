@@ -16,6 +16,7 @@
 - Gain control
 - Keybind Menu
 - Dynamic resizing/rescaling
+- Recording to .wav file (will create `out/` folder if it doesn't exist)
 
 ## Keybinds & Controls
 
@@ -26,6 +27,7 @@ Click on a button to toggle its state
 - `N` to toggle microphone on/off
 - `M` to toggle mute/unmute
 - `F` to freeze the spectrum
+- `R` to record audio to .wav file
 - `SHIFT` + Click to reset a knob to its default value
 - `CTRL` + Click to allow finer control of a knob
 - Right click on `FREEZE` to toggle freeze mode (other parameters can be adjusted while frozen)
@@ -40,17 +42,11 @@ Click on a button to toggle its state
 
 ## Usage
 
-  Clone repository and run `py spectrumtool.py`  OR download the executable from the releases section.
+  Clone repository and run `py spectrumtool.py`  OR download the `SpectrumTool.v.x.x.exe` executable from the releases section.
 
 ## Screenshots
 
-![Default view](images/Screenshot%202022-12-22%20044932.png)
-![Frozen spectrum](images/Screenshot%202022-12-22%20045037.png)
-![Keybind menu](images/Screenshot%202022-12-22%20045057.png)
-![Shifted frequency](images/Screenshot%202022-12-22%20045129.png)
-![Smallest window size](images/Screenshot%202022-12-22%20050351.png)
-![Largest window size](images/Screenshot%202022-12-22%20050743.png)
-![Solid view](images/Screenshot%202022-12-22%20050858.png)
+
 
 <!-- ## Video [![SpectrumTool Demo](link) -->
 
