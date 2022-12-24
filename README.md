@@ -56,7 +56,9 @@
 ![Keybind menu](images/Screenshot%202022-12-22%20220314.png)
 ![Save message](images/Screenshot%202022-12-22%20220437.png)
 
-<!-- TODO: ## Video [![SpectrumTool Demo](link) -->
+<!-- ## Video Demonstration 
+
+[![SpectrumTool Demo](https://i3.ytimg.com/vi/7NLDb_feJFA/maxresdefault.jpg)](https://www.youtube.com/watch?v=7NLDb_feJFA) -->
 
 ## License
 
