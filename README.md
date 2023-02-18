@@ -1,4 +1,4 @@
-# SpectrumTool
+# SpectrumTool <a href="https://github.com/alecames/spectrum-tool/releases/latest"><img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/alecames/SpectrumTool?display_name=tag&style=flat-square"></a>
 
 ## Description
 
@@ -44,7 +44,7 @@
 
 ## Usage
 
-  Clone repository and run `py spectrumtool.py` **OR** download the `SpectrumToo.exe` executable from the [Releases](https://github.com/alecames/spectrum-tool/releases/latest) section. The executable is a standalone application and does not require the `assets/` folder or the `out/` folder to be present in the same directory.
+  Clone repository and run `py spectrumtool.py` **OR** download the `SpectrumTool.exe` executable from the [Releases](https://github.com/alecames/spectrum-tool/releases/latest) section. The executable is a standalone application and does not require the `assets/` folder or the `out/` folder to be present in the same directory.
 
 ## Screenshots
 
