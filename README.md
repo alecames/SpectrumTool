@@ -1,5 +1,9 @@
 # SpectrumTool <a href="https://github.com/alecames/spectrum-tool/releases/latest"><img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/alecames/SpectrumTool?display_name=tag&style=flat-square"></a>
 
+![SpectrumTool Demo GIF](github/spectrum-tool-demo.gif)
+
+---
+
 ## Description
 
  This application is a spectrum analyzer that displays the frequency spectrum of an audio stream in real-time, with optional effects on the audio stream.
