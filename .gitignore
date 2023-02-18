@@ -7,3 +7,6 @@ build_script
 *.exe
 *.pdf
 *.mp4
+*.pdf
+*.html
+report_assets
